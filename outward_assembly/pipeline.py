@@ -8,6 +8,8 @@ from typing import List, Optional, TypedDict
 
 from Bio import SeqIO
 from Bio.Seq import Seq
+import cProfile
+import pstats
 
 from .io_helpers import (
     PathLike,
@@ -196,11 +198,20 @@ def _outward_main_loop(
         _copy_iteration_reads(workdir, iter)
         _assemble_contigs(workdir, iter, high_freq_kmers_path is not None)
         logger.debug("Ran megahit")
+        
+        profiler = cProfile.Profile()
+        
+        profiler.enable()
 
         # Step 3: subset assembled contigs to those containing seed
-        _subset_contigs(workdir, iter, seed_seqs, include_overlaps=overlap_contig_filtering)
+        _subset_contigs(workdir, iter, seed_seqs, include_overlaps=overlap_contig_filtering)#, algorithm = "ahocorasick")
         logger.debug("Found seed-containing contigs")
 
+        profiler.disable()
+        stats = pstats.Stats(profiler)
+        stats.sort_stats('cumulative')
+        stats.print_stats(30)
+        breakpoint()
         # Step 4: check if we made progress this iteration and compute metrics.
         # We compute metrics after calling _choose_best_subiter, since
         # _choose_best_subiter updates the current contigs fasta, which is
