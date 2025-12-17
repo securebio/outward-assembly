@@ -1,0 +1,12 @@
+2025-12-11 17:21:39 - MEGAHIT v1.2.9
+2025-12-11 17:21:39 - Using megahit_core without POPCNT and BMI2 support, because the features not detected by CPUID 
+2025-12-11 17:21:39 - Convert reads to binary library
+2025-12-11 17:21:39 - b'INFO  sequence/io/sequence_lib.cpp  :   77 - Lib 0 (/Users/lee/NAO/outward-assembly/tests/oa_workdir/tmpeh8hkgdk/reads_1.fastq,/Users/lee/NAO/outward-assembly/tests/oa_workdir/tmpeh8hkgdk/reads_2.fastq): pe, 2762 reads, 150 max length'
+2025-12-11 17:21:39 - b'INFO  utils/utils.h                 :  152 - Real: 0.0050\tuser: 0.0060\tsys: 0.0042\tmaxrss: 3801088'
+2025-12-11 17:21:39 - Start assembly. Number of CPU threads 8 
+2025-12-11 17:21:39 - k list: 15,21,29,39,59,79,99,119,141 
+2025-12-11 17:21:39 - Memory used: 15461882265
+2025-12-11 17:21:39 - Extract solid (k+1)-mers for k = 15 
+2025-12-11 17:21:39 - Build graph for k = 15 
+2025-12-11 17:21:41 - Error occurs, please refer to /Users/lee/NAO/outward-assembly/tests/oa_workdir/tmpeh8hkgdk/megahit_out_iter1-1/log for detail
+2025-12-11 17:21:41 - Command: /Users/lee/miniforge3/envs/oa-tools/bin/megahit_core_popcnt seq2sdbg --host_mem 15461882265 --mem_flag 1 --output_prefix /Users/lee/NAO/outward-assembly/tests/oa_workdir/tmpeh8hkgdk/megahit_out_iter1-1/tmp/k15/15 --num_cpu_threads 8 -k 15 --kmer_from 0 --input_prefix /Users/lee/NAO/outward-assembly/tests/oa_workdir/tmpeh8hkgdk/megahit_out_iter1-1/tmp/k15/15 --need_mercy; Exit code -11

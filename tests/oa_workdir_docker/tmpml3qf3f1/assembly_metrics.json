@@ -1,0 +1,24 @@
+{
+  "total_time": 7.736019134521484,
+  "inner_iterations": [
+    {
+      "iteration": 1,
+      "read_pair_count": 1381,
+      "contig_count": 1,
+      "longest_contig_length": 269,
+      "total_contig_length": 269
+    },
+    {
+      "iteration": 2,
+      "read_pair_count": 1386,
+      "contig_count": 1,
+      "longest_contig_length": 269,
+      "total_contig_length": 269
+    }
+  ],
+  "final_contig_count": 1,
+  "final_longest_contig_length": 269,
+  "final_total_contig_length": 269,
+  "final_read_pair_count": 1386,
+  "work_dir": "/workspace/tests/oa_workdir_docker/tmpml3qf3f1"
+}

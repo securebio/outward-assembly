@@ -1,0 +1,78 @@
+2025-12-17 16:41:08 - MEGAHIT v1.2.9
+2025-12-17 16:41:08 - Using megahit_core without POPCNT and BMI2 support, because the features not detected by CPUID 
+2025-12-17 16:41:08 - Convert reads to binary library
+2025-12-17 16:41:08 - b'INFO  sequence/io/sequence_lib.cpp  :   75 - Lib 0 (/workspace/tests/oa_workdir_docker/tmpknrt7n01/reads_1.fastq,/workspace/tests/oa_workdir_docker/tmpknrt7n01/reads_2.fastq): pe, 2762 reads, 150 max length'
+2025-12-17 16:41:08 - b'INFO  utils/utils.h                 :  152 - Real: 0.0033\tuser: 0.0012\tsys: 0.0012\tmaxrss: 20168'
+2025-12-17 16:41:08 - Start assembly. Number of CPU threads 8 
+2025-12-17 16:41:08 - k list: 15,21,29,39,59,79,99,119,141 
+2025-12-17 16:41:08 - Memory used: 7396485120
+2025-12-17 16:41:08 - Extract solid (k+1)-mers for k = 15 
+2025-12-17 16:41:08 - Build graph for k = 15 
+2025-12-17 16:41:09 - Assemble contigs from SdBG for k = 15
+2025-12-17 16:41:09 - Local assembly for k = 15
+2025-12-17 16:41:09 - Extract iterative edges from k = 15 to 21 
+2025-12-17 16:41:09 - Merging to output final contigs 
+2025-12-17 16:41:09 - 0 contigs, total 0 bp, min 0 bp, max 0 bp, avg 0 bp, N50 0 bp
+2025-12-17 16:41:09 - ALL DONE. Time elapsed: 0.199723 seconds 
+2025-12-17 16:41:09 - MEGAHIT v1.2.9
+2025-12-17 16:41:09 - Using megahit_core without POPCNT and BMI2 support, because the features not detected by CPUID 
+2025-12-17 16:41:09 - Convert reads to binary library
+2025-12-17 16:41:09 - b'INFO  sequence/io/sequence_lib.cpp  :   75 - Lib 0 (/workspace/tests/oa_workdir_docker/tmpknrt7n01/reads_1.fastq,/workspace/tests/oa_workdir_docker/tmpknrt7n01/reads_2.fastq): pe, 2762 reads, 150 max length'
+2025-12-17 16:41:09 - b'INFO  utils/utils.h                 :  152 - Real: 0.0034\tuser: 0.0015\tsys: 0.0007\tmaxrss: 20180'
+2025-12-17 16:41:09 - Start assembly. Number of CPU threads 8 
+2025-12-17 16:41:09 - k list: 15,21,29,39,59,79,99,119,141 
+2025-12-17 16:41:09 - Memory used: 7396485120
+2025-12-17 16:41:09 - Extracting solid (k+1)-mers and building sdbg for k = 15
+2025-12-17 16:41:09 - Assemble contigs from SdBG for k = 15
+2025-12-17 16:41:09 - Local assembly for k = 15
+2025-12-17 16:41:09 - Extract iterative edges from k = 15 to 21 
+2025-12-17 16:41:09 - Build graph for k = 21 
+2025-12-17 16:41:09 - Assemble contigs from SdBG for k = 21
+2025-12-17 16:41:09 - Local assembly for k = 21
+2025-12-17 16:41:09 - Extract iterative edges from k = 21 to 29 
+2025-12-17 16:41:09 - Build graph for k = 29 
+2025-12-17 16:41:09 - Assemble contigs from SdBG for k = 29
+2025-12-17 16:41:10 - Local assembly for k = 29
+2025-12-17 16:41:10 - Extract iterative edges from k = 29 to 39 
+2025-12-17 16:41:10 - Merging to output final contigs 
+2025-12-17 16:41:10 - 2248 contigs, total 311622 bp, min 100 bp, max 269 bp, avg 138 bp, N50 150 bp
+2025-12-17 16:41:10 - ALL DONE. Time elapsed: 0.908118 seconds 
+2025-12-17 16:41:51 - MEGAHIT v1.2.9
+2025-12-17 16:41:51 - Using megahit_core without POPCNT and BMI2 support, because the features not detected by CPUID 
+2025-12-17 16:41:51 - Convert reads to binary library
+2025-12-17 16:41:51 - b'INFO  sequence/io/sequence_lib.cpp  :   75 - Lib 0 (/workspace/tests/oa_workdir_docker/tmpknrt7n01/reads_1.fastq,/workspace/tests/oa_workdir_docker/tmpknrt7n01/reads_2.fastq): pe, 2772 reads, 150 max length'
+2025-12-17 16:41:51 - b'INFO  utils/utils.h                 :  152 - Real: 0.0032\tuser: 0.0000\tsys: 0.0021\tmaxrss: 20372'
+2025-12-17 16:41:51 - Start assembly. Number of CPU threads 8 
+2025-12-17 16:41:51 - k list: 15,21,29,39,59,79,99,119,141 
+2025-12-17 16:41:51 - Memory used: 7396485120
+2025-12-17 16:41:51 - Extract solid (k+1)-mers for k = 15 
+2025-12-17 16:41:51 - Build graph for k = 15 
+2025-12-17 16:41:51 - Assemble contigs from SdBG for k = 15
+2025-12-17 16:41:51 - Local assembly for k = 15
+2025-12-17 16:41:51 - Extract iterative edges from k = 15 to 21 
+2025-12-17 16:41:51 - Merging to output final contigs 
+2025-12-17 16:41:51 - 0 contigs, total 0 bp, min 0 bp, max 0 bp, avg 0 bp, N50 0 bp
+2025-12-17 16:41:51 - ALL DONE. Time elapsed: 0.205681 seconds 
+2025-12-17 16:41:51 - MEGAHIT v1.2.9
+2025-12-17 16:41:51 - Using megahit_core without POPCNT and BMI2 support, because the features not detected by CPUID 
+2025-12-17 16:41:51 - Convert reads to binary library
+2025-12-17 16:41:51 - b'INFO  sequence/io/sequence_lib.cpp  :   75 - Lib 0 (/workspace/tests/oa_workdir_docker/tmpknrt7n01/reads_1.fastq,/workspace/tests/oa_workdir_docker/tmpknrt7n01/reads_2.fastq): pe, 2772 reads, 150 max length'
+2025-12-17 16:41:51 - b'INFO  utils/utils.h                 :  152 - Real: 0.0033\tuser: 0.0007\tsys: 0.0015\tmaxrss: 20144'
+2025-12-17 16:41:51 - Start assembly. Number of CPU threads 8 
+2025-12-17 16:41:51 - k list: 15,21,29,39,59,79,99,119,141 
+2025-12-17 16:41:51 - Memory used: 7396485120
+2025-12-17 16:41:51 - Extracting solid (k+1)-mers and building sdbg for k = 15
+2025-12-17 16:41:51 - Assemble contigs from SdBG for k = 15
+2025-12-17 16:41:51 - Local assembly for k = 15
+2025-12-17 16:41:51 - Extract iterative edges from k = 15 to 21 
+2025-12-17 16:41:51 - Build graph for k = 21 
+2025-12-17 16:41:52 - Assemble contigs from SdBG for k = 21
+2025-12-17 16:41:52 - Local assembly for k = 21
+2025-12-17 16:41:52 - Extract iterative edges from k = 21 to 29 
+2025-12-17 16:41:52 - Build graph for k = 29 
+2025-12-17 16:41:52 - Assemble contigs from SdBG for k = 29
+2025-12-17 16:41:52 - Local assembly for k = 29
+2025-12-17 16:41:52 - Extract iterative edges from k = 29 to 39 
+2025-12-17 16:41:52 - Merging to output final contigs 
+2025-12-17 16:41:52 - 2258 contigs, total 313100 bp, min 100 bp, max 269 bp, avg 138 bp, N50 150 bp
+2025-12-17 16:41:52 - ALL DONE. Time elapsed: 0.941711 seconds 
