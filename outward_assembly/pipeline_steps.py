@@ -532,13 +532,13 @@ def _subset_split_files_local(
     with open(cmd_file, "w") as f:
         f.write("\n".join(cmds))
     # shell=True needed for commands with pipes
-        subprocess.run(
-            f"cat {cmd_file} | xargs -P {num_parallel} -I CMD sh -c 'CMD'",
-            shell=True,
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+    subprocess.run(
+        f"cat {cmd_file} | xargs -P {num_parallel} -I CMD sh -c 'CMD'",
+        shell=True,
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
     # Concatenate per-split hits
     for read_num in (1, 2):
