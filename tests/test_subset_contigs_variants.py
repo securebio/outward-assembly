@@ -148,26 +148,215 @@ def verify_results(
     other_result: Dict[int, SeqOrientation],
     name: str,
 ) -> bool:
-    """Verify that results match the naive implementation."""
+    """
+    Verify that results match the naive implementation.
+    
+    Checks:
+    1. Same set of contig indices found
+    2. Same orientation for each contig
+    """
     naive_keys = set(naive_result.keys())
     other_keys = set(other_result.keys())
+    
+    all_passed = True
 
+    # Check 1: Same contig indices
     if naive_keys != other_keys:
         missing = naive_keys - other_keys
         extra = other_keys - naive_keys
-        print(f"  WARNING: {name} results differ!")
+        print(f"  ✗ {name}: Different contig indices!")
         if missing:
             print(f"    Missing {len(missing)} matches: {list(missing)[:5]}...")
         if extra:
             print(f"    Extra {len(extra)} matches: {list(extra)[:5]}...")
-        return False
+        all_passed = False
+    
+    # Check 2: Same orientations for matching indices
+    common_keys = naive_keys & other_keys
+    orientation_mismatches = []
+    for key in common_keys:
+        if naive_result[key] != other_result[key]:
+            orientation_mismatches.append(key)
+    
+    if orientation_mismatches:
+        print(f"  ✗ {name}: Orientation mismatches for {len(orientation_mismatches)} contigs!")
+        for key in orientation_mismatches[:5]:
+            print(f"    Contig {key}: naive={naive_result[key].value}, {name}={other_result[key].value}")
+        if len(orientation_mismatches) > 5:
+            print(f"    ... and {len(orientation_mismatches) - 5} more")
+        all_passed = False
+    
+    if all_passed:
+        print(f"  ✓ {name}: All {len(naive_result)} matches verified (indices + orientations)")
+    
+    return all_passed
 
-    return True
+
+def run_correctness_tests(include_bowtie2: bool = True) -> bool:
+    """
+    Run thorough correctness tests before benchmarking.
+    
+    Tests:
+    1. Empty inputs
+    2. No matches
+    3. All matches
+    4. Forward orientation matches
+    5. Reverse complement matches
+    6. Mixed orientations
+    7. Multiple seeds matching same contig
+    8. Palindromic seeds
+    
+    Returns True if all tests pass.
+    """
+    print("=" * 80)
+    print("CORRECTNESS TESTS")
+    print("=" * 80)
+    print()
+    
+    all_passed = True
+    
+    # Test 1: Empty inputs
+    print("Test 1: Empty inputs...")
+    empty_seeds: List[Seq] = []
+    empty_contigs: List[SeqRecord] = []
+    
+    assert contig_ids_by_seed(empty_contigs, empty_seeds) == {}
+    assert _contig_ids_by_seed_ahocorasick(empty_contigs, empty_seeds) == {}
+    print("  ✓ Empty inputs handled correctly")
+    
+    # Test 2: Known forward match
+    print("\nTest 2: Known forward match...")
+    seed = Seq("GATTACA")
+    contig = SeqRecord(Seq("AAAAAAGATTACATTTTTT"), id="contig_0")
+    
+    naive_result = contig_ids_by_seed([contig], [seed])
+    ac_result = _contig_ids_by_seed_ahocorasick([contig], [seed])
+    
+    assert 0 in naive_result, "Naive should find match"
+    assert naive_result[0] == SeqOrientation.FORWARD, "Should be forward orientation"
+    assert 0 in ac_result, "Aho-Corasick should find match"
+    assert ac_result[0] == SeqOrientation.FORWARD, "Should be forward orientation"
+    print("  ✓ Forward match detected correctly")
+    
+    # Test 3: Known reverse complement match
+    print("\nTest 3: Known reverse complement match...")
+    seed = Seq("GATTACA")
+    # Reverse complement of GATTACA is TGTAATC
+    contig = SeqRecord(Seq("AAAAAATGTAATCTTTTTT"), id="contig_0")
+    
+    naive_result = contig_ids_by_seed([contig], [seed])
+    ac_result = _contig_ids_by_seed_ahocorasick([contig], [seed])
+    
+    assert 0 in naive_result, "Naive should find reverse complement match"
+    assert naive_result[0] == SeqOrientation.REVERSE, "Should be reverse orientation"
+    assert 0 in ac_result, "Aho-Corasick should find reverse complement match"
+    assert ac_result[0] == SeqOrientation.REVERSE, "Should be reverse orientation"
+    print("  ✓ Reverse complement match detected correctly")
+    
+    # Test 4: No match
+    print("\nTest 4: No match...")
+    seed = Seq("GATTACA")
+    contig = SeqRecord(Seq("AAAAAAAAAAAAAAAAAAA"), id="contig_0")
+    
+    naive_result = contig_ids_by_seed([contig], [seed])
+    ac_result = _contig_ids_by_seed_ahocorasick([contig], [seed])
+    
+    assert len(naive_result) == 0, "Naive should find no match"
+    assert len(ac_result) == 0, "Aho-Corasick should find no match"
+    print("  ✓ No false positives")
+    
+    # Test 5: Multiple contigs, mixed results
+    print("\nTest 5: Multiple contigs with mixed matches...")
+    seeds = [Seq("GATTACA"), Seq("ACGTACGT")]
+    contigs = [
+        SeqRecord(Seq("AAAGATTACAAAA"), id="contig_0"),  # Has seed 0 forward
+        SeqRecord(Seq("AAATGTAATCAAA"), id="contig_1"),  # Has seed 0 reverse
+        SeqRecord(Seq("AAAACGTACGTAA"), id="contig_2"),  # Has seed 1 forward
+        SeqRecord(Seq("AAAAAAAAAAAAA"), id="contig_3"),  # No match
+    ]
+    
+    naive_result = contig_ids_by_seed(contigs, seeds)
+    ac_result = _contig_ids_by_seed_ahocorasick(contigs, seeds)
+    
+    # Check indices
+    assert set(naive_result.keys()) == {0, 1, 2}, f"Naive indices wrong: {naive_result.keys()}"
+    assert set(ac_result.keys()) == {0, 1, 2}, f"AC indices wrong: {ac_result.keys()}"
+    
+    # Check orientations
+    assert naive_result[0] == SeqOrientation.FORWARD
+    assert naive_result[1] == SeqOrientation.REVERSE
+    assert naive_result[2] == SeqOrientation.FORWARD
+    assert ac_result[0] == SeqOrientation.FORWARD
+    assert ac_result[1] == SeqOrientation.REVERSE
+    assert ac_result[2] == SeqOrientation.FORWARD
+    print("  ✓ Multiple contigs with mixed matches handled correctly")
+    
+    # Test 6: Variable length seeds
+    print("\nTest 6: Variable length seeds...")
+    seeds = [
+        Seq("GATTACA"),           # 7bp
+        Seq("ACGTACGTACGT"),      # 12bp
+        Seq("AT"),                # 2bp (very short)
+    ]
+    contigs = [
+        SeqRecord(Seq("AAAGATTACAAAA"), id="contig_0"),
+        SeqRecord(Seq("ACGTACGTACGTAA"), id="contig_1"),
+        SeqRecord(Seq("CCCCCCCCCCCCCC"), id="contig_2"),  # No match (no AT)
+    ]
+    
+    naive_result = contig_ids_by_seed(contigs, seeds)
+    ac_result = _contig_ids_by_seed_ahocorasick(contigs, seeds)
+    
+    assert set(naive_result.keys()) == set(ac_result.keys())
+    print("  ✓ Variable length seeds handled correctly")
+    
+    # Test 7: Random data verification (statistical test)
+    print("\nTest 7: Random data verification (100 seeds × 500 contigs)...")
+    random.seed(42)  # Reproducible
+    seeds, contigs = generate_test_data(
+        num_seeds=100,
+        num_contigs=500,
+        variable_seed_length=True,
+    )
+    
+    naive_result = contig_ids_by_seed(contigs, seeds)
+    ac_result = _contig_ids_by_seed_ahocorasick(contigs, seeds)
+    
+    if not verify_results(naive_result, ac_result, "Aho-Corasick"):
+        all_passed = False
+    
+    # Test 8: Bowtie2 verification (if available)
+    if include_bowtie2:
+        print("\nTest 8: Bowtie2 verification...")
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".fasta", delete=False) as tmp:
+            SeqIO.write(contigs, tmp, "fasta")
+            tmp_path = Path(tmp.name)
+        
+        try:
+            bowtie2_result = _contig_ids_by_seed_bowtie2(tmp_path, seeds)
+            if not verify_results(naive_result, bowtie2_result, "Bowtie2"):
+                all_passed = False
+        except Exception as e:
+            print(f"  ⚠ Bowtie2 test skipped: {e}")
+        finally:
+            tmp_path.unlink()
+    
+    print()
+    if all_passed:
+        print("=" * 80)
+        print("ALL CORRECTNESS TESTS PASSED ✓")
+        print("=" * 80)
+    else:
+        print("=" * 80)
+        print("SOME TESTS FAILED ✗")
+        print("=" * 80)
+    
+    return all_passed
 
 
 def run_benchmark(
     test_sizes: List[Tuple[int, int]],
-    skip_naive_threshold: int = 10000,
+    skip_naive_threshold: int = 100,
     include_bowtie2: bool = True,
 ) -> None:
     """
@@ -293,31 +482,9 @@ def run_benchmark(
 
         print(f"{r['seeds']:>10,} {r['contigs']:>10,} {naive_str:>12} {ac_str:>12} {bt2_str:>12} {speedup:>12}")
 
-    print()
-    print("=" * 80)
-    print("CONCLUSIONS")
-    print("=" * 80)
-    print("""
-1. Aho-Corasick is consistently the fastest for exact matching
-2. Bowtie2 has ~0.2-0.3s fixed overhead for index building
-3. Naive algorithm becomes impractical beyond ~1000 seeds × 10000 contigs
-4. At scale (25k seeds × 113k contigs), Aho-Corasick provides 100-1000x speedup
-""")
 
 
 if __name__ == "__main__":
-    # Define test sizes: (num_seeds, num_contigs)
-    # Start small and increase to show scaling behavior
-    test_sizes = [
-        (10, 100),           # Tiny: baseline
-        (100, 1000),         # Small: ~0.1M operations for naive
-        (500, 5000),         # Medium: ~2.5M operations for naive
-        (1000, 10000),       # Large: ~10M operations for naive
-        (2500, 25000),       # XL: ~62.5M operations (naive will be slow)
-        (5000, 50000),       # XXL: ~250M operations (skip naive)
-        # (25000, 113000),   # Real scale: ~2.8B operations (uncomment to test)
-    ]
-
     # Check if bowtie2 is available
     import shutil
     bowtie2_available = shutil.which("bowtie2") is not None
@@ -327,8 +494,29 @@ if __name__ == "__main__":
         print("Install with: conda install -c bioconda bowtie2")
         print()
 
+    # Run correctness tests first
+    print()
+    correctness_passed = run_correctness_tests(include_bowtie2=bowtie2_available)
+    print()
+    
+    if not correctness_passed:
+        print("ABORTING: Correctness tests failed. Fix bugs before benchmarking.")
+        exit(1)
+
+    # Define test sizes: (num_seeds, num_contigs)
+    # Start small and increase to show scaling behavior
+    test_sizes = [
+        (10, 100),           # Tiny: baseline
+        (100, 1000),         # Small: ~0.1M operations for naive
+        (500, 5000),         # Medium: ~2.5M operations for naive
+        (1000, 10000),       # Large: ~10M operations for naive
+        (2500, 25000),       # XL: ~62.5M operations (naive will be slow)
+        (5000, 50000),       # XXL: ~250M operations (skip naive)
+        (25000, 113000),   # Real scale: ~2.8B operations (uncomment to test)
+    ]
+
     run_benchmark(
         test_sizes=test_sizes,
-        skip_naive_threshold=50000,  # Skip naive when seeds × contigs > 50M
+        skip_naive_threshold=500,  # Skip naive when seeds × contigs > 50M
         include_bowtie2=bowtie2_available,
     )
