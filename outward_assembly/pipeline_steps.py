@@ -16,8 +16,6 @@ from .basic_seq_operations import SeqOrientation, contig_ids_by_seed
 from .io_helpers import PathLike, S3Files, concat_and_tag_fastq
 from .overlap_graph import get_overlapping_sequence_ids
 
-import cProfile 
-import pstats
 
 # File names used across functions
 CURRENT_CONTIGS = "current_contigs.fasta"
@@ -534,8 +532,6 @@ def _subset_split_files_local(
     with open(cmd_file, "w") as f:
         f.write("\n".join(cmds))
     # shell=True needed for commands with pipes
-    """
-    NOTE: I had to swap out this block with the block below due to macOS args issues (according to Claude)
         subprocess.run(
             f"cat {cmd_file} | xargs -P {num_parallel} -I CMD sh -c 'CMD'",
             shell=True,
@@ -544,12 +540,6 @@ def _subset_split_files_local(
             stderr=subprocess.DEVNULL,
         )
 
-    """
-    with open(cmd_file, 'r') as f:
-        for cmd in f:
-            cmd = cmd.strip()
-            if cmd:
-                subprocess.run(cmd, shell=True, check=True)  
     # Concatenate per-split hits
     for read_num in (1, 2):
         output_path = workdir / f"reads_{read_num}.fastq"
