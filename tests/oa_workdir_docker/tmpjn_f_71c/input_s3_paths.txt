@@ -1,3 +1,0 @@
-s3://lee-oa-test-data/outward-assembly-test/siz/test_reads_chunk000001.fastq.zst
-s3://lee-oa-test-data/outward-assembly-test/siz/test_reads_chunk000002.fastq.zst
-s3://lee-oa-test-data/outward-assembly-test/siz/test_reads_chunk000003.fastq.zst
