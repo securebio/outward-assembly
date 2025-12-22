@@ -204,7 +204,7 @@ def _outward_main_loop(
         profiler.enable()
 
         # Step 3: subset assembled contigs to those containing seed
-        _subset_contigs(workdir, iter, seed_seqs, include_overlaps=overlap_contig_filtering)#, algorithm = "ahocorasick")
+        _subset_contigs(workdir, iter, seed_seqs, include_overlaps=overlap_contig_filtering, algorithm = "ahocorasick")
         logger.debug("Found seed-containing contigs")
 
         profiler.disable()
