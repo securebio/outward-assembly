@@ -19,5 +19,3 @@ class SeqOrientation(int, Enum):
         if not isinstance(other, SeqOrientation):
             other = SeqOrientation(other)
         return SeqOrientation(self.value * other.value)
-
-

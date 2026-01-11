@@ -42,6 +42,7 @@ class FastaStats(NamedTuple):
     longest: int
     total: int
 
+
 def _reverse_complement(seq: str) -> str:
     """
     Return the reverse complement of a DNA sequence.
@@ -56,6 +57,7 @@ def _reverse_complement(seq: str) -> str:
     """
     complement = str.maketrans("ACGTacgt", "TGCAtgca")
     return seq.translate(complement)[::-1]
+
 
 def _assemble_contigs(workdir: PathLike, iter: int, freq_filter: bool) -> None:
     """Assemble iteration contigs in working directory.
@@ -121,6 +123,7 @@ def _assemble_contigs(workdir: PathLike, iter: int, freq_filter: bool) -> None:
         with open(log_path, "a") as log:
             subprocess.run(cmd, stdout=log, stderr=log, check=True)
 
+
 def _contig_ids_by_seed_ahocorasick(
     records: List[SeqRecord],
     seed_seqs: List[Seq],
@@ -163,13 +166,14 @@ def _contig_ids_by_seed_ahocorasick(
 
     return matches
 
+
 def _subset_contigs(
     workdir: PathLike,
     iter: int,
     seed_seqs: List[Seq],
     include_overlaps: bool = True,
     overlap_n0: int = 7,
-    overlap_n1: int = 31
+    overlap_n1: int = 31,
 ) -> None:
     """Subset assembled contigs for the iteration to those containing seed sequences.
 
@@ -205,7 +209,9 @@ def _subset_contigs(
 
         # Get the indices of all contigs that have seeds in them, along with their orientation
         # with respect to the seed.
-        subsetted_ids_and_orientations: Dict[int, SeqOrientation] = (_contig_ids_by_seed_ahocorasick(records, seed_seqs))
+        subsetted_ids_and_orientations: Dict[int, SeqOrientation] = (
+            _contig_ids_by_seed_ahocorasick(records, seed_seqs)
+        )
 
         if include_overlaps:
             seqs = [rec.seq for rec in records]
