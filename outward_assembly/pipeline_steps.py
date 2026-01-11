@@ -2,11 +2,11 @@ import os
 import shutil
 import subprocess
 import textwrap
+import ahocorasick
 from multiprocessing import cpu_count
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional
+from typing import Dict, List, Literal, NamedTuple, Optional
 
-import ahocorasick
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
