@@ -15,7 +15,6 @@ from .basic_seq_operations import SeqOrientation
 from .io_helpers import PathLike, S3Files, concat_and_tag_fastq
 from .overlap_graph import get_overlapping_sequence_ids
 
-
 # File names used across functions
 CURRENT_CONTIGS = "current_contigs.fasta"
 WARM_START = "seed_with_warm_start.fasta"
