@@ -28,14 +28,10 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 # Import the implementations
-from outward_assembly.basic_seq_operations import (
-    SeqOrientation,
-    contig_ids_by_seed,
-)
-from outward_assembly.pipeline_steps import (
-    _contig_ids_by_seed_ahocorasick,
-    _contig_ids_by_seed_bowtie2,
-)
+from outward_assembly.basic_seq_operations import SeqOrientation
+from outward_assembly.pipeline_steps import _contig_ids_by_seed_ahocorasick
+from naive import contig_ids_by_seed
+from bowtie import contig_ids_by_seed_bowtie2 as _contig_ids_by_seed_bowtie2
 
 
 def generate_test_data(

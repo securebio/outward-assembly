@@ -198,7 +198,7 @@ def _outward_main_loop(
         logger.debug("Ran megahit")
 
         # Step 3: subset assembled contigs to those containing seed
-        _subset_contigs(workdir, iter, seed_seqs, include_overlaps=overlap_contig_filtering, algorithm = "ahocorasick")
+        _subset_contigs(workdir, iter, seed_seqs, include_overlaps=overlap_contig_filtering)
         logger.debug("Found seed-containing contigs")
 
         # Step 4: check if we made progress this iteration and compute metrics.

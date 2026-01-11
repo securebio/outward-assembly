@@ -2,8 +2,7 @@ import os
 import shutil
 import subprocess
 import textwrap
-import tempfile # TODO: remove if using Aho-Corasick
-import ahocorasick # TODO: remove if using bowtie
+import ahocorasick
 from multiprocessing import cpu_count
 from pathlib import Path
 from typing import Dict, List, Literal, NamedTuple, Optional
@@ -12,7 +11,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-from .basic_seq_operations import SeqOrientation, contig_ids_by_seed
+from .basic_seq_operations import SeqOrientation
 from .io_helpers import PathLike, S3Files, concat_and_tag_fastq
 from .overlap_graph import get_overlapping_sequence_ids
 
@@ -123,7 +122,6 @@ def _assemble_contigs(workdir: PathLike, iter: int, freq_filter: bool) -> None:
         with open(log_path, "a") as log:
             subprocess.run(cmd, stdout=log, stderr=log, check=True)
 
-
 def _contig_ids_by_seed_ahocorasick(
     records: List[SeqRecord],
     seed_seqs: List[Seq],
@@ -144,16 +142,14 @@ def _contig_ids_by_seed_ahocorasick(
 
     automaton = ahocorasick.Automaton()
 
-    for seed_idx, seed in enumerate(seed_seqs):
+    for seed in seed_seqs:
         seed_str = str(seed).upper()
         seed_rc = _reverse_complement(seed_str)
 
-        # Forward seed: if this matches, contig is FORWARD relative to seed
-        automaton.add_word(seed_str, (seed_idx, SeqOrientation.FORWARD))
+        automaton.add_word(seed_str, SeqOrientation.FORWARD)
 
-        # Reverse complement: if this matches, contig is REVERSE relative to seed
-        if seed_rc != seed_str:  # avoid palindrome duplicates
-            automaton.add_word(seed_rc, (seed_idx, SeqOrientation.REVERSE))
+        if seed_rc != seed_str:
+            automaton.add_word(seed_rc, SeqOrientation.REVERSE)
 
     automaton.make_automaton()
 
@@ -162,128 +158,11 @@ def _contig_ids_by_seed_ahocorasick(
     for contig_idx, record in enumerate(records):
         contig_seq = str(record.seq).upper()
 
-        for _end_pos, (_seed_idx, orientation) in automaton.iter(contig_seq):
+        for _end_pos, orientation in automaton.iter(contig_seq):
             matches[contig_idx] = orientation
-            break 
+            break
 
     return matches
-
-
-def _contig_ids_by_seed_bowtie2(
-    contigs_path: Path,
-    seed_seqs: List[Seq],
-    threads: int = 4,
-) -> Dict[int, SeqOrientation]:
-    """
-    Find which contigs contain which seeds using bowtie2 alignment.
-
-    Args:
-        contigs_path: Path to the contigs FASTA file
-        seed_seqs: List of seed sequences to search for
-        threads: Number of threads for bowtie2
-
-    Returns:
-        Dict mapping contig index to orientation (FORWARD or REVERSE)
-
-    """
-    if not seed_seqs:
-        return {}
-
-    records: List[SeqRecord] = list(SeqIO.parse(contigs_path, "fasta"))
-    if not records:
-        return {}
-
-    # contig name to index mapping
-    contig_name_to_idx: Dict[str, int] = {
-        rec.id: idx for idx, rec in enumerate(records)
-    }
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-
-        # build index from contigs
-        index_prefix = tmpdir / "contigs_index"
-        build_cmd = [
-            "bowtie2-build",
-            "--threads",
-            str(threads),
-            "--quiet",
-            str(contigs_path),
-            str(index_prefix),
-        ]
-
-        result = subprocess.run(build_cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(f"bowtie2-build failed: {result.stderr}")
-
-        # temp seeds file
-        seeds_path = tmpdir / "seeds.fasta"
-        seed_records = [
-            SeqRecord(Seq(str(seq)), id=f"seed_{i}", description="")
-            for i, seq in enumerate(seed_seqs)
-        ]
-        SeqIO.write(seed_records, seeds_path, "fasta")
-
-        # Run bowtie2 alignment
-        # Key flags:
-        #   -a              : report ALL alignments (seed might be in multiple contigs)
-        #   --end-to-end    : entire seed must align (no soft clipping)
-        #   --score-min C,0,0 : only perfect matches (any mismatch = negative score)
-        #   --no-unal       : don't output unaligned seeds
-        #   --no-hd/--no-sq : skip SAM headers (we don't need them)
-        sam_path = tmpdir / "alignments.sam"
-        align_cmd = [
-            "bowtie2",
-            "-x",
-            str(index_prefix),
-            "-f",
-            str(seeds_path),
-            "-a",
-            "--end-to-end",
-            "--score-min",
-            "C,0,0",
-            "--no-unal",
-            "--no-hd",
-            "--no-sq",
-            "-p",
-            str(threads),
-            "-S",
-            str(sam_path),
-        ]
-
-        result = subprocess.run(align_cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(f"bowtie2 failed: {result.stderr}")
-
-        # Step 4: Parse SAM output
-        # SAM FLAG bit 16 (0x10) indicates reverse complement alignment
-        matches: Dict[int, SeqOrientation] = {}
-
-        with open(sam_path) as f:
-            for line in f:
-                if line.startswith("@"):
-                    continue
-
-                fields = line.strip().split("\t")
-                if len(fields) < 3:
-                    continue
-
-                flag = int(fields[1])
-                contig_name = fields[2]
-
-                if contig_name == "*":
-                    continue
-
-                if contig_name not in contig_name_to_idx:
-                    continue
-
-                contig_idx = contig_name_to_idx[contig_name]
-                orientation = (
-                    SeqOrientation.REVERSE if (flag & 16) else SeqOrientation.FORWARD
-                )
-                matches[contig_idx] = orientation
-
-        return matches
 
 def _subset_contigs(
     workdir: PathLike,
@@ -291,9 +170,7 @@ def _subset_contigs(
     seed_seqs: List[Seq],
     include_overlaps: bool = True,
     overlap_n0: int = 7,
-    overlap_n1: int = 31,
-    algorithm: Literal["naive", "ahocorasick", "bowtie2"] = "naive", # TODO: remove 
-    threads: int = 4 # TODO: remove if using Aho-Corasick
+    overlap_n1: int = 31
 ) -> None:
     """Subset assembled contigs for the iteration to those containing seed sequences.
 
@@ -329,18 +206,7 @@ def _subset_contigs(
 
         # Get the indices of all contigs that have seeds in them, along with their orientation
         # with respect to the seed.
-        if algorithm == "ahocorasick":
-            subsetted_ids_and_orientations: Dict[int, SeqOrientation] = (
-                _contig_ids_by_seed_ahocorasick(records, seed_seqs)
-            )
-        elif algorithm == "bowtie2":
-            subsetted_ids_and_orientations: Dict[int, SeqOrientation] = (
-                _contig_ids_by_seed_bowtie2(contigs_path, seed_seqs, threads=threads)
-            )
-        else:
-            subsetted_ids_and_orientations: Dict[int, SeqOrientation] = contig_ids_by_seed(
-                records, seed_seqs
-            )
+        subsetted_ids_and_orientations: Dict[int, SeqOrientation] = (_contig_ids_by_seed_ahocorasick(records, seed_seqs))
 
         if include_overlaps:
             seqs = [rec.seq for rec in records]
