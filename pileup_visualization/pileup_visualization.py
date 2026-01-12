@@ -2,8 +2,7 @@
 """
 Pileup Visualization Module
 
-Creates visual representations of how read pairs align to assembled contigs,
-with highlighting of seed regions.
+Visualizes how read pairs attest to assembled contigs
 
 Usage:
     python pileup_visualization.py reads_R1.fastq reads_R2.fastq contigs.fasta contig_name seed_seq output.png
@@ -433,7 +432,6 @@ def get_read_pair_rows(
     
     samfile.close()
     
-    # Process pairs
     rows = []
     for qname, mates in read_pairs.items():
         if len(mates) == 2:
@@ -441,7 +439,7 @@ def get_read_pair_rows(
             mates.sort(key=lambda x: x.reference_start)
             row = process_read_pair(mates[0], mates[1], contig_seq, seed_positions, colors)
         elif len(mates) == 1:
-            # Single mate - process alone
+            # single mate
             mate = mates[0]
             color_list, start, end, ins = process_mate(mate, contig_seq, seed_positions, colors)
             if color_list:
@@ -454,13 +452,11 @@ def get_read_pair_rows(
             else:
                 row = None
         else:
-            # More than 2 mates - skip (shouldn't happen with proper filtering)
             continue
         
         if row is not None:
             rows.append(row)
     
-    # Sort by start coordinate
     rows.sort(key=lambda r: r.start_coord)
     
     return rows
@@ -471,7 +467,7 @@ def get_read_pair_rows(
 # =============================================================================
 
 class PileupRenderer:
-    """Renders PileupReadPairRow objects into a visualization image."""
+    """Renders PileupReadPairRow objects into a visualization."""
     
     def __init__(self, colors: Optional[Dict[str, np.ndarray]] = None):
         self.colors = DEFAULT_COLORS.copy()
