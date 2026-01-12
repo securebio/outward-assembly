@@ -141,8 +141,7 @@ def _contig_ids_by_seed_ahocorasick(
     Note:
         When a contig matches multiple seeds (or matches both forward and reverse
         complement), the orientation is determined by the leftmost match position
-        in the contig. This is efficient and deterministic, though it may differ
-        from seed-list-order-based approaches when seeds have conflicting orientations.
+        in the contig. 
     """
 
     if not seed_seqs or not records:
