@@ -12,9 +12,8 @@ Usage:
     python benchmark_subset_contigs.py
 
 Requirements:
-    - pyahocorasick: pip install pyahocorasick
-    - bowtie2: conda install -c bioconda bowtie2
-    - biopython: pip install biopython
+    - pyahocorasick and biopython are installed via pyproject.toml
+    - bowtie2 (optional, for Bowtie2 benchmarks only): conda install -c bioconda bowtie2
 """
 
 import random
