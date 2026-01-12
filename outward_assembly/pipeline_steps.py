@@ -46,16 +46,8 @@ class FastaStats(NamedTuple):
 def _reverse_complement(seq: str) -> str:
     """
     Return the reverse complement of a DNA sequence.
-
-    Used by: Aho-Corasick implementation
-
-    Args:
-        seq: DNA sequence string (ACGT)
-
-    Returns:
-        Reverse complement of the input sequence
     """
-    complement = str.maketrans("ACGTacgt", "TGCAtgca")
+    complement = str.maketrans("ACGTNacgtn", "TGCANtgcan")
     return seq.translate(complement)[::-1]
 
 
