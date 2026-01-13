@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from collections import defaultdict
 from typing import List, Tuple, Dict, Set, Optional
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 from Bio.SeqIO.FastaIO import SimpleFastaParser
 from Bio.Seq import reverse_complement
 
@@ -47,15 +47,16 @@ class PileupReadPairRow:
 
 # Default color palette
 DEFAULT_COLORS = {
-    "match": np.array([74, 144, 226, 255], dtype=np.uint8),       # #4A90E2 - Blue (seed-containing reads)
-    "match_noseed": np.array([140, 170, 210, 255], dtype=np.uint8), # Muted blue (non-seed reads)
+    "match_and_contains_seed": np.array([74, 144, 226, 255], dtype=np.uint8),       # #4A90E2 - Blue (seed-containing reads)
+    "match_no_seed": np.array([140, 170, 210, 255], dtype=np.uint8), # Muted blue (non-seed reads)
     "seed": np.array([255, 140, 0, 255], dtype=np.uint8),         # #FF8C00 - Orange
+    "seed_mismatch": np.array([220, 40, 40, 255], dtype=np.uint8), # #DC2828 - Red (mismatch at seed position)
     "mismatch": np.array([80, 80, 80, 255], dtype=np.uint8),      # #505050 - Dark grey
     "deletion": np.array([0, 0, 0, 255], dtype=np.uint8),         # Black
-    "soft_clip": np.array([100, 200, 220, 255], dtype=np.uint8),  # Cyan
-    "insertion_marker": np.array([255, 0, 255, 255], dtype=np.uint8), # Magenta
-    "insert_gap": np.array([224, 224, 224, 255], dtype=np.uint8), # #E0E0E0 - Light grey
-    "bg": np.array([255, 255, 255, 255], dtype=np.uint8),         # #FFFFFF - White
+    "soft_clip": np.array([100, 200, 220, 255], dtype=np.uint8),  # Cyan -- this is basically an insertion at the edges, but good to have a separate color + CIGAR distinguishes them
+    "insertion_marker": np.array([255, 0, 255, 255], dtype=np.uint8), # Magenta -- note: this is technically the base just before the insertion starts
+    "unsequenced": np.array([224, 224, 224, 255], dtype=np.uint8), # #E0E0E0 - Light grey
+    "background": np.array([255, 255, 255, 255], dtype=np.uint8),         # #FFFFFF - White
 }
 
 
@@ -145,7 +146,6 @@ def load_contig(contigs_fasta: str, contig_name: str) -> str:
     """Load a specific contig sequence from a FASTA file."""
     with open(contigs_fasta) as f:
         for name, seq in SimpleFastaParser(f):
-            # Handle cases where name might have description after space
             if name == contig_name or name.split()[0] == contig_name:
                 return seq.upper()
     raise ValueError(f"Contig '{contig_name}' not found in {contigs_fasta}")
@@ -179,7 +179,7 @@ def find_seed_positions(contig_seq: str, seed_seq: str) -> Set[int]:
             positions.add(pos)
         start = idx + 1
     
-    # Search for reverse complement (if different)
+    # Search for reverse complement (if not palindrome)
     if seed_rc != seed_seq:
         start = 0
         while True:
@@ -200,7 +200,7 @@ def find_seed_positions(contig_seq: str, seed_seq: str) -> Set[int]:
 # CIGAR Processing
 # =============================================================================
 
-# CIGAR operation codes (from SAM spec)
+# CIGAR operation codes
 CIGAR_M = 0   # Match/mismatch (consumes query and reference)
 CIGAR_I = 1   # Insertion (consumes query only)
 CIGAR_D = 2   # Deletion (consumes reference only)
@@ -234,16 +234,16 @@ def process_mate(
     insertions = 0
     hit_seed = False
 
-    query_pos = 0  # Position in read sequence
-    ref_pos = read.reference_start  # Position on contig
-    start_coord = ref_pos  # Will be adjusted for leading soft clip
+    query_pos = 0 
+    ref_pos = read.reference_start  
+    start_coord = ref_pos  
 
     if read.cigartuples is None:
         return [], ref_pos, ref_pos, 0, False
 
     for op_idx, (op, length) in enumerate(read.cigartuples):
 
-        if op == CIGAR_M:  # Match/mismatch - need to check actual bases
+        if op == CIGAR_M:  # aligned base
             for _ in range(length):
                 read_base = read.query_sequence[query_pos].upper()
                 if 0 <= ref_pos < len(contig_seq):
@@ -252,44 +252,56 @@ def process_mate(
                     ref_base = 'N'
 
                 if ref_pos in seed_positions:
-                    color_list.append(colors["seed"])
                     hit_seed = True
-                elif read_base == ref_base:
-                    color_list.append(colors["match"])
+                    if read_base == ref_base:
+                        color_list.append(colors["seed"])
+                    else:
+                        color_list.append(colors["seed_mismatch"])
+                elif read_base == ref_base:  # need to check match for M's
+                    color_list.append(colors["match_and_contains_seed"])
                 else:
                     color_list.append(colors["mismatch"])
 
                 query_pos += 1
                 ref_pos += 1
 
-        elif op == CIGAR_EQ:  # Sequence match (guaranteed match)
+        elif op == CIGAR_EQ:  # bases match
             for _ in range(length):
                 if ref_pos in seed_positions:
                     color_list.append(colors["seed"])
                     hit_seed = True
                 else:
-                    color_list.append(colors["match"])
+                    color_list.append(colors["match_and_contains_seed"])
                 query_pos += 1
                 ref_pos += 1
 
-        elif op == CIGAR_X:  # Sequence mismatch (guaranteed mismatch)
-            color_list.extend([colors["mismatch"]] * length)
-            query_pos += length
-            ref_pos += length
+        elif op == CIGAR_X:  # bases do not match
+            for _ in range(length):
+                if ref_pos in seed_positions:
+                    color_list.append(colors["seed_mismatch"])
+                    hit_seed = True
+                else:
+                    color_list.append(colors["mismatch"])
+                query_pos += 1
+                ref_pos += 1
 
-        elif op == CIGAR_I:  # Insertion (bases in read, not in reference)
+        elif op == CIGAR_I:  # Insertion (bases in read, not in the reference contig)
             insertions += length
             query_pos += length
             # Mark the insertion location by coloring the previous aligned base
             if color_list:
                 color_list[-1] = colors["insertion_marker"]
 
-        elif op == CIGAR_D:  # Deletion (bases in reference, not in read)
+        elif op == CIGAR_D:  # Deletion (bases in the reference contig, but not in the read)
             color_list.extend([colors["deletion"]] * length)
             ref_pos += length
 
         elif op == CIGAR_S:  # Soft clip
-            if op_idx == 0:
+            # Leading soft clip if first op, or only preceded by hard clips (e.g., 5H10S50M)
+            is_leading = all(
+                read.cigartuples[i][0] == CIGAR_H for i in range(op_idx)
+            )
+            if is_leading:
                 # Leading soft clip: bases are BEFORE reference_start
                 start_coord = ref_pos - length
                 color_list = [colors["soft_clip"]] * length + color_list
@@ -342,8 +354,8 @@ def process_read_pair(
         if contains_seed:
             return color_list
         # Replace match color with match_noseed
-        match_color = colors["match"]
-        noseed_color = colors["match_noseed"]
+        match_color = colors["match_and_contains_seed"]
+        noseed_color = colors["match_no_seed"]
         return [noseed_color if np.array_equal(c, match_color) else c for c in color_list]
 
     up_colors = adjust_colors_for_noseed(up_colors)
@@ -372,7 +384,7 @@ def process_read_pair(
 
     if gap > 0:
         # Gap between mates - fill with insert_gap color
-        gap_colors = [colors["insert_gap"]] * gap
+        gap_colors = [colors["unsequenced"]] * gap
         combined = up_colors + gap_colors + down_colors
     elif gap < 0:
         # Mates overlap - skip overlapping portion of downstream
@@ -419,23 +431,21 @@ def get_read_pair_rows(
     Returns:
         List of PileupReadPairRow objects, sorted by start position
     """
-    samfile = pysam.AlignmentFile(bam_path, "rb")
     read_pairs = defaultdict(list)
-    
-    # Collect reads mapping to our contig
-    try:
-        reads = samfile.fetch(contig_name)
-    except ValueError:
-        # Contig not in BAM - try without index
-        print(f"Warning: Could not fetch by region, scanning entire BAM")
-        reads = (r for r in samfile if r.reference_name == contig_name)
-    
-    for read in reads:
-        if read.is_unmapped or read.is_secondary or read.is_supplementary:
-            continue
-        read_pairs[read.query_name].append(read)
-    
-    samfile.close()
+
+    with pysam.AlignmentFile(bam_path, "rb") as samfile:
+        # Collect reads mapping to our contig
+        try:
+            reads = samfile.fetch(contig_name)
+        except ValueError:
+            # Contig not in BAM - try without index
+            print(f"Warning: Could not fetch by region, scanning entire BAM")
+            reads = (r for r in samfile if r.reference_name == contig_name)
+
+        for read in reads:
+            if read.is_unmapped or read.is_secondary or read.is_supplementary:
+                continue
+            read_pairs[read.query_name].append(read)
     
     rows = []
     for qname, mates in read_pairs.items():
@@ -500,14 +510,14 @@ class PileupRenderer:
             rows: List of PileupReadPairRow objects
             scale: (x_scale, y_scale) for pixel scaling
             padding: Padding in pixels
-            contig_height: Height of contig ribbon in pixels (default 3 for thin ribbon)
+            contig_height: Height of contig ribbon in pixels
 
         Returns:
             RGBA numpy array of the rendered image
         """
         if not rows:
             print("Warning: No rows to render")
-            return np.full((100, 100, 4), self.colors["bg"], dtype=np.uint8)
+            return np.full((100, 100, 4), self.colors["background"], dtype=np.uint8)
 
         # Sort rows by start_coord for classic pileup diagonal pattern
         rows = sorted(rows, key=lambda r: r.start_coord)
@@ -530,7 +540,7 @@ class PileupRenderer:
         total_height = padding + contig_height + padding + len(rows) + padding
 
         # Create canvas
-        canvas = np.full((total_height, total_width, 4), self.colors["bg"], dtype=np.uint8)
+        canvas = np.full((total_height, total_width, 4), self.colors["background"], dtype=np.uint8)
 
         # Genome section offset
         genome_x_offset = ins_up_width + pad_left
@@ -542,7 +552,7 @@ class PileupRenderer:
 
         # Draw contig ribbon - first fill with match color, then overlay seed positions
         contig_x_start = genome_x_offset + contig_x_in_genome
-        canvas[contig_y_start:contig_y_end, contig_x_start:contig_x_start + contig_len] = self.colors["match"]
+        canvas[contig_y_start:contig_y_end, contig_x_start:contig_x_start + contig_len] = self.colors["match_and_contains_seed"]
         for x in seed_positions:
             canvas_x = contig_x_start + x
             if 0 <= canvas_x < total_width:
@@ -597,14 +607,15 @@ class PileupRenderer:
         img_height, img_width = image.shape[:2]
 
         legend_items = [
-            ("Seed read", self.colors["match"]),
-            ("Non-seed read", self.colors["match_noseed"]),
-            ("Seed bases", self.colors["seed"]),
+            ("Seed read", self.colors["match_and_contains_seed"]),
+            ("Non-seed read", self.colors["match_no_seed"]),
+            ("Seed match", self.colors["seed"]),
+            ("Seed mismatch", self.colors["seed_mismatch"]),
             ("Mismatch", self.colors["mismatch"]),
             ("Deletion", self.colors["deletion"]),
             ("Soft Clip", self.colors["soft_clip"]),
             ("Insertion", self.colors["insertion_marker"]),
-            ("Unsequenced", self.colors["insert_gap"]),
+            ("Unsequenced", self.colors["unsequenced"]),
         ]
 
         # Layout parameters
@@ -620,7 +631,7 @@ class PileupRenderer:
 
         # Create new canvas
         new_height = img_height + legend_height
-        canvas = np.full((new_height, img_width, 4), self.colors["bg"], dtype=np.uint8)
+        canvas = np.full((new_height, img_width, 4), self.colors["background"], dtype=np.uint8)
 
         # Copy original image
         canvas[:img_height, :, :] = image
