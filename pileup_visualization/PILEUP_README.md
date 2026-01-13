@@ -4,12 +4,6 @@ Visualizes how paired-end reads align to an assembled contig, highlighting a see
 
 ## Requirements
 
-- Python 3.8+
-- `bowtie2` and `samtools` in PATH
-- Python packages from main project: `numpy`, `pysam`, `biopython`
-
-### Additional Installation
-
 ```bash
 uv pip install -r requirements.txt  # Installs Pillow for image rendering
 ```
@@ -70,6 +64,7 @@ A PNG image showing:
 
 ## Python API
 
+(probably not necessary, but just in case we want to do something else with the image besides save it with Pillow)
 ```python
 from pileup_visualization import create_pileup_visualization
 
@@ -88,11 +83,3 @@ image = create_pileup_visualization(
 # Returns: numpy array of shape (height, width, 4) with RGBA values
 ```
 
-## What Happens Under the Hood
-
-1. **Alignment**: Runs `bowtie2 --local` to align reads to contigs
-2. **BAM processing**: Parses alignments, groups read pairs by name
-3. **CIGAR interpretation**: Converts alignment operations to pixel colors
-4. **Rendering**: Draws contig ribbon and read rows to a canvas
-5. **Scaling**: Expands pixels for visibility
-6. **Legend**: Adds color key below the visualization
