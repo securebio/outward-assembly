@@ -200,6 +200,16 @@ def find_seed_positions(contig_seq: str, seed_seq: str) -> Set[int]:
 # CIGAR Processing
 # =============================================================================
 
+# CIGAR operation codes (from SAM spec)
+CIGAR_M = 0   # Match/mismatch (consumes query and reference)
+CIGAR_I = 1   # Insertion (consumes query only)
+CIGAR_D = 2   # Deletion (consumes reference only)
+CIGAR_S = 4   # Soft clip (consumes query only)
+CIGAR_H = 5   # Hard clip (consumes neither)
+CIGAR_EQ = 7  # Sequence match (consumes query and reference)
+CIGAR_X = 8   # Sequence mismatch (consumes query and reference)
+
+
 def process_mate(
     read: pysam.AlignedSegment,
     contig_seq: str,
@@ -233,7 +243,7 @@ def process_mate(
 
     for op_idx, (op, length) in enumerate(read.cigartuples):
 
-        if op == 0:  # M - alignment match (need to check actual bases)
+        if op == CIGAR_M:  # Match/mismatch - need to check actual bases
             for _ in range(length):
                 read_base = read.query_sequence[query_pos].upper()
                 if 0 <= ref_pos < len(contig_seq):
@@ -252,7 +262,7 @@ def process_mate(
                 query_pos += 1
                 ref_pos += 1
 
-        elif op == 7:  # = - sequence match (guaranteed match)
+        elif op == CIGAR_EQ:  # Sequence match (guaranteed match)
             for _ in range(length):
                 if ref_pos in seed_positions:
                     color_list.append(colors["seed"])
@@ -262,38 +272,33 @@ def process_mate(
                 query_pos += 1
                 ref_pos += 1
 
-        elif op == 8:  # X - sequence mismatch (guaranteed mismatch)
-            for _ in range(length):
-                color_list.append(colors["mismatch"])
-                query_pos += 1
-                ref_pos += 1
+        elif op == CIGAR_X:  # Sequence mismatch (guaranteed mismatch)
+            color_list.extend([colors["mismatch"]] * length)
+            query_pos += length
+            ref_pos += length
 
-        elif op == 1:  # I - insertion (bases in read, not in reference)
+        elif op == CIGAR_I:  # Insertion (bases in read, not in reference)
             insertions += length
             query_pos += length
             # Mark the insertion location by coloring the previous aligned base
             if color_list:
                 color_list[-1] = colors["insertion_marker"]
 
-        elif op == 2:  # D - deletion (bases in reference, not in read)
-            for _ in range(length):
-                color_list.append(colors["deletion"])
-                ref_pos += 1
-            # No query_pos change
+        elif op == CIGAR_D:  # Deletion (bases in reference, not in read)
+            color_list.extend([colors["deletion"]] * length)
+            ref_pos += length
 
-        elif op == 4:  # S - soft clip
+        elif op == CIGAR_S:  # Soft clip
             if op_idx == 0:
                 # Leading soft clip: bases are BEFORE reference_start
                 start_coord = ref_pos - length
-                soft_colors = [colors["soft_clip"]] * length
-                color_list = soft_colors + color_list
+                color_list = [colors["soft_clip"]] * length + color_list
             else:
                 # Trailing soft clip: bases are AFTER aligned region
-                for _ in range(length):
-                    color_list.append(colors["soft_clip"])
+                color_list.extend([colors["soft_clip"]] * length)
             query_pos += length
 
-        elif op == 5:  # H - hard clip
+        elif op == CIGAR_H:  # Hard clip
             pass  # Bases not in query_sequence
 
     end_coord = start_coord + len(color_list)
@@ -439,15 +444,18 @@ def get_read_pair_rows(
             mates.sort(key=lambda x: x.reference_start)
             row = process_read_pair(mates[0], mates[1], contig_seq, seed_positions, colors)
         elif len(mates) == 1:
-            # single mate
+            # Single mate (other mate unmapped or mapped elsewhere)
             mate = mates[0]
-            color_list, start, end, ins = process_mate(mate, contig_seq, seed_positions, colors)
+            color_list, start, end, ins, hit_seed = process_mate(
+                mate, contig_seq, seed_positions, colors
+            )
             if color_list:
                 row = PileupReadPairRow(
                     colors=np.array(color_list, dtype=np.uint8),
                     start_coord=start,
                     ins_upstream=ins,
-                    ins_downstream=0
+                    ins_downstream=0,
+                    contains_seed=hit_seed,
                 )
             else:
                 row = None
@@ -532,12 +540,13 @@ class PileupRenderer:
         contig_y_end = padding + contig_height
         contig_x_in_genome = 0 - min_x  # Where contig position 0 is in genome section
 
-        for x in range(contig_len):
-            canvas_x = genome_x_offset + contig_x_in_genome + x
-            if x in seed_positions:
+        # Draw contig ribbon - first fill with match color, then overlay seed positions
+        contig_x_start = genome_x_offset + contig_x_in_genome
+        canvas[contig_y_start:contig_y_end, contig_x_start:contig_x_start + contig_len] = self.colors["match"]
+        for x in seed_positions:
+            canvas_x = contig_x_start + x
+            if 0 <= canvas_x < total_width:
                 canvas[contig_y_start:contig_y_end, canvas_x] = self.colors["seed"]
-            else:
-                canvas[contig_y_start:contig_y_end, canvas_x] = self.colors["match"]
 
         # Draw read rows
         reads_y_start = padding + contig_height + padding
@@ -545,25 +554,27 @@ class PileupRenderer:
         for i, row in enumerate(rows):
             y = reads_y_start + i
 
-            # Draw main alignment
+            # Draw main alignment using numpy slicing
             x_start = genome_x_offset + (row.start_coord - min_x)
-            for j, color in enumerate(row.colors):
-                canvas_x = x_start + j
-                if 0 <= canvas_x < total_width:
-                    canvas[y, canvas_x] = color
+            x_end = x_start + len(row.colors)
+            # Clip to canvas bounds
+            src_start = max(0, -x_start)
+            src_end = len(row.colors) - max(0, x_end - total_width)
+            dst_start = max(0, x_start)
+            dst_end = min(total_width, x_end)
+            if dst_start < dst_end:
+                canvas[y, dst_start:dst_end] = row.colors[src_start:src_end]
 
             # Draw upstream insertions (magenta pixels)
             if row.ins_upstream > 0:
-                for k in range(row.ins_upstream):
-                    if k < ins_up_width:
-                        canvas[y, k] = self.colors["insertion_marker"]
+                ins_count = min(row.ins_upstream, ins_up_width)
+                canvas[y, 0:ins_count] = self.colors["insertion_marker"]
 
             # Draw downstream insertions (magenta pixels)
             if row.ins_downstream > 0:
+                ins_count = min(row.ins_downstream, ins_down_width)
                 down_x_start = total_width - ins_down_width
-                for k in range(row.ins_downstream):
-                    if down_x_start + k < total_width:
-                        canvas[y, down_x_start + k] = self.colors["insertion_marker"]
+                canvas[y, down_x_start:down_x_start + ins_count] = self.colors["insertion_marker"]
 
         # Scale image
         scaled = np.repeat(canvas, scale[0], axis=1)
