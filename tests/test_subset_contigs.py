@@ -94,6 +94,26 @@ def test_contig_ids_by_seed_variable_length():
     assert result[3] == SeqOrientation.FORWARD
 
 
+def _naive_contig_ids_by_seed(records, seed_seqs):
+    """
+    Naive O(seeds × contigs) implementation for comparison.
+    Iterates through seeds in list order, returns orientation of first match.
+    """
+    filtered_records = {}
+    for i, rec in enumerate(records):
+        contig_sequence = str(rec.seq)
+        for seed in seed_seqs:
+            seed_str = str(seed)
+            seed_rc = str(seed.reverse_complement())
+            if seed_str in contig_sequence:
+                filtered_records[i] = SeqOrientation.FORWARD
+                break
+            elif seed_rc in contig_sequence:
+                filtered_records[i] = SeqOrientation.REVERSE
+                break
+    return filtered_records
+
+
 @pytest.mark.fast
 @pytest.mark.unit
 def test_contig_ids_by_seed_random_data_verification():
@@ -101,16 +121,7 @@ def test_contig_ids_by_seed_random_data_verification():
     Generate random data and verify that Aho-Corasick matches the naive implementation.
     """
     import random
-    import sys
-    from pathlib import Path
 
-    # grab the naive implementation
-    benchmarks_dir = Path(__file__).parent.parent / "benchmarks"
-    sys.path.insert(0, str(benchmarks_dir))
-
-    from naive import contig_ids_by_seed as naive_contig_ids_by_seed
-
-    sys.path.pop(0)
     random.seed(42)
 
     bases = "ACGT"
@@ -140,7 +151,7 @@ def test_contig_ids_by_seed_random_data_verification():
             new_seq = contig_seq[:pos] + seed + contig_seq[pos + len(seed) :]
             contigs[i].seq = Seq(new_seq)
 
-    naive_result = naive_contig_ids_by_seed(contigs, seeds)
+    naive_result = _naive_contig_ids_by_seed(contigs, seeds)
     ac_result = _contig_ids_by_seed_ahocorasick(contigs, seeds)
 
     # check indices
