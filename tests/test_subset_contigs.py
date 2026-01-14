@@ -46,12 +46,10 @@ def test_contig_ids_by_seed_multiple_seeds():
     """Test with multiple seed sequences."""
     seeds = [Seq("GATTACA"), Seq("ACGTACGT")]
     contigs = [
-        SeqRecord(seq=Seq("AAAGATTACAAAA")), 
-        SeqRecord(
-            seq=Seq("AAATGTAATCAAA")
-        ),  # (TGTAATC == RC of GATTACA)
-        SeqRecord(seq=Seq("AAAACGTACGTAA")),  
-        SeqRecord(seq=Seq("AAAAAAAAAAAAA")),  
+        SeqRecord(seq=Seq("AAAGATTACAAAA")),
+        SeqRecord(seq=Seq("AAATGTAATCAAA")),  # (TGTAATC == RC of GATTACA)
+        SeqRecord(seq=Seq("AAAACGTACGTAA")),
+        SeqRecord(seq=Seq("AAAAAAAAAAAAA")),
     ]
     result = _contig_ids_by_seed_ahocorasick(records=contigs, seed_seqs=seeds)
     assert set(result.keys()) == {0, 1, 2}
@@ -81,7 +79,7 @@ def test_contig_ids_by_seed_variable_length():
     seeds = [
         Seq("GATTACA"),  # 7bp
         Seq("ACGTACGTACGT"),  # 12bp
-        Seq("AT"),  # 2bp 
+        Seq("AT"),  # 2bp
     ]
     contigs = [
         SeqRecord(seq=Seq("AAAGATTACAAAA")),  # Has seed 0 (7bp)
@@ -113,7 +111,7 @@ def test_contig_ids_by_seed_random_data_verification():
     from naive import contig_ids_by_seed as naive_contig_ids_by_seed
 
     sys.path.pop(0)
-    random.seed(42) 
+    random.seed(42)
 
     bases = "ACGT"
     num_seeds = 50
@@ -133,7 +131,7 @@ def test_contig_ids_by_seed_random_data_verification():
         seq = "".join(random.choices(bases, k=length))
         contigs.append(SeqRecord(Seq(seq), id=f"contig_{i}"))
 
-    # guarantee that some contigs contain seeds 
+    # guarantee that some contigs contain seeds
     for i in range(0, min(30, num_contigs)):
         seed = str(random.choice(seeds))
         contig_seq = str(contigs[i].seq)
@@ -141,7 +139,6 @@ def test_contig_ids_by_seed_random_data_verification():
             pos = random.randint(0, len(contig_seq) - len(seed))
             new_seq = contig_seq[:pos] + seed + contig_seq[pos + len(seed) :]
             contigs[i].seq = Seq(new_seq)
-
 
     naive_result = naive_contig_ids_by_seed(contigs, seeds)
     ac_result = _contig_ids_by_seed_ahocorasick(contigs, seeds)
