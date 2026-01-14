@@ -29,7 +29,18 @@ source .venv/bin/activate  # Linux/macOS
 
 ### Bioinformatics tools
 
-Bioinformatics tools are managed via conda using the **tools-only** environment (`oa_tools_env.yml`) that contains just the bioinformatics tools (BBMap/BBDuk, MEGAHIT, fastp, KMC) without Python dependencies:
+Bioinformatics tools are managed via conda using the **tools-only** environment (`oa_tools_env.yml`) that contains just the bioinformatics tools (MEGAHIT, fastp, KMC) without Python dependencies.
+
+**Additionally, you need to install Nucleaze** (a Rust-based k-mer filtering tool). See [nucleaze_migration.md](./nucleaze_migration.md) for installation instructions, or briefly:
+
+```bash
+# Requires Rust 1.88+
+git clone https://github.com/jackdougle/nucleaze.git
+cd nucleaze
+cargo install --path .
+```
+
+Install the conda tools environment:
 
 ```bash
 mamba env create -n oa-tools -f oa_tools_env.yml --channel-priority flexible
