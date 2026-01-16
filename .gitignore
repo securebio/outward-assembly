@@ -179,3 +179,7 @@ cython_debug/
 .env
 
 fastp*
+
+# OS and editor files
+.DS_Store
+.Rhistory
