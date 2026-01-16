@@ -51,7 +51,7 @@ DEFAULT_COLORS = {
     "match_no_seed": np.array([140, 170, 210, 255], dtype=np.uint8), # Muted blue (non-seed reads)
     "seed": np.array([255, 140, 0, 255], dtype=np.uint8),         # #FF8C00 - Orange
     "seed_mismatch": np.array([220, 40, 40, 255], dtype=np.uint8), # #DC2828 - Red (mismatch at seed position)
-    "mismatch": np.array([80, 80, 80, 255], dtype=np.uint8),      # #505050 - Dark grey
+    "mismatch": np.array([220, 40, 40, 255], dtype=np.uint8),      # #DC2828 - Red
     "deletion": np.array([0, 0, 0, 255], dtype=np.uint8),         # Black
     "soft_clip": np.array([100, 200, 220, 255], dtype=np.uint8),  # Cyan -- this is basically an insertion at the edges, but good to have a separate color + CIGAR distinguishes them
     "insertion_marker": np.array([255, 0, 255, 255], dtype=np.uint8), # Magenta -- note: this is technically the base just before the insertion starts
@@ -610,7 +610,6 @@ class PileupRenderer:
             ("Seed read", self.colors["match_and_contains_seed"]),
             ("Non-seed read", self.colors["match_no_seed"]),
             ("Seed match", self.colors["seed"]),
-            ("Seed mismatch", self.colors["seed_mismatch"]),
             ("Mismatch", self.colors["mismatch"]),
             ("Deletion", self.colors["deletion"]),
             ("Soft Clip", self.colors["soft_clip"]),

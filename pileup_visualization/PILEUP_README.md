@@ -2,6 +2,19 @@
 
 Visualizes how paired-end reads align to an assembled contig, highlighting a seed sequence of interest.
 
+![Example pileup visualization](example_pileup_tiny.png)
+
+<details>
+<summary>More examples</summary>
+
+**25 reads:**
+![Small pileup example](example_pileup_small.png)
+
+**100 reads:**
+![Larger pileup example](example_pileup.png)
+
+</details>
+
 ## Requirements
 
 ```bash
@@ -55,8 +68,7 @@ A PNG image showing:
 | Blue | Matching bases (seed-containing read) |
 | Muted blue | Matching bases (non-seed read) |
 | Orange | Matching bases within the seed region |
-| Red | Mismatched bases within the seed region |
-| Dark grey | Mismatched bases |
+| Red | Mismatched bases |
 | Black | Deletions |
 | Cyan | Soft-clipped bases |
 | Magenta | Insertion markers |
