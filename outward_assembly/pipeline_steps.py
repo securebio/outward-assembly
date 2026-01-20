@@ -6,11 +6,12 @@ from multiprocessing import cpu_count
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional
 
+import ahocorasick
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-from .basic_seq_operations import SeqOrientation, contig_ids_by_seed
+from .basic_seq_operations import SeqOrientation
 from .io_helpers import PathLike, S3Files, concat_and_tag_fastq
 from .overlap_graph import get_overlapping_sequence_ids
 
@@ -40,6 +41,14 @@ NF_PROFILE_ENV_VAR = "NEXTFLOW_PROFILE"
 class FastaStats(NamedTuple):
     longest: int
     total: int
+
+
+def _reverse_complement(seq: str) -> str:
+    """
+    Return the reverse complement of a DNA sequence.
+    """
+    complement = str.maketrans("ACGTNacgtn", "TGCANtgcan")
+    return seq.translate(complement)[::-1]
 
 
 def _assemble_contigs(workdir: PathLike, iter: int, freq_filter: bool) -> None:
@@ -107,6 +116,54 @@ def _assemble_contigs(workdir: PathLike, iter: int, freq_filter: bool) -> None:
             subprocess.run(cmd, stdout=log, stderr=log, check=True)
 
 
+def _contig_ids_by_seed_ahocorasick(
+    records: List[SeqRecord],
+    seed_seqs: List[Seq],
+) -> Dict[int, SeqOrientation]:
+    """
+    Find which contigs contain which seeds using Aho-Corasick algorithm.
+
+    Args:
+        records: List of SeqRecord objects (contigs)
+        seed_seqs: List of seed sequences to search for
+
+    Returns:
+        Dict mapping contig index to orientation (FORWARD or REVERSE)
+
+    Note:
+        When a contig matches multiple seeds (or matches both forward and reverse
+        complement), the orientation is determined by the leftmost match position
+        in the contig.
+    """
+
+    if not seed_seqs or not records:
+        return {}
+
+    automaton = ahocorasick.Automaton()
+
+    for seed in seed_seqs:
+        seed_str = str(seed).upper()
+        seed_rc = _reverse_complement(seed_str)
+
+        automaton.add_word(seed_str, SeqOrientation.FORWARD)
+
+        if seed_rc != seed_str:
+            automaton.add_word(seed_rc, SeqOrientation.REVERSE)
+
+    automaton.make_automaton()
+
+    matches: Dict[int, SeqOrientation] = {}
+
+    for contig_idx, record in enumerate(records):
+        contig_seq = str(record.seq).upper()
+
+        for _end_pos, orientation in automaton.iter(contig_seq):
+            matches[contig_idx] = orientation
+            break
+
+    return matches
+
+
 def _subset_contigs(
     workdir: PathLike,
     iter: int,
@@ -136,7 +193,6 @@ def _subset_contigs(
         for d in workdir.iterdir()
         if d.is_dir() and d.name.startswith(f"{MEGAHIT_OUT_PREFIX}{iter}-")
     ]
-
     # Find the assembly output of each megahit subiteration
     for subiter_dir in subiter_dirs:
         contigs_path = subiter_dir / MEGAHIT_FINAL_CONTIGS
@@ -150,8 +206,8 @@ def _subset_contigs(
 
         # Get the indices of all contigs that have seeds in them, along with their orientation
         # with respect to the seed.
-        subsetted_ids_and_orientations: Dict[int, SeqOrientation] = contig_ids_by_seed(
-            records, seed_seqs
+        subsetted_ids_and_orientations: Dict[int, SeqOrientation] = (
+            _contig_ids_by_seed_ahocorasick(records, seed_seqs)
         )
 
         if include_overlaps:
