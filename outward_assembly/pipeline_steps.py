@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 import textwrap
 from multiprocessing import cpu_count
 from pathlib import Path
@@ -109,6 +110,13 @@ def _assemble_contigs(workdir: PathLike, iter: int, freq_filter: bool) -> None:
     ]
     # fmt: on
     cmds.append(cmd)
+
+    # Workaround for megahit multi-threading bug on macOS (segfaults with threads > 1)
+    # See: https://github.com/voutcn/megahit/issues/385
+    # Potential fix: https://github.com/voutcn/megahit/pull/387
+    if sys.platform == "darwin":
+        for cmd in cmds:
+            cmd.extend(["--num-cpu-threads", "1"])
 
     log_path = workdir / LOG_FILE
     for cmd in cmds:
