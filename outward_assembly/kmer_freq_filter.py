@@ -232,8 +232,6 @@ def frequency_filter_reads(
     # --outu outputs reads that do NOT match (i.e., reads without high-freq kmers)
     # Note: nucleaze stdin handling is unreliable in some environments (see docs/nucleaze_migration.md)
     # so we use temp files instead of piping through stdin/stdout
-    tmp_in = out_dir / "tmp_input.fastq"
-    tmp_out = out_dir / "tmp_output.fastq"
     cmds = [
         f"aws s3 cp {rec.s3_path} - | zstdcat - > {out_dir / rec.filename}_tmp_in.fq && "
         f"{nucleaze_bin} --in {out_dir / rec.filename}_tmp_in.fq "

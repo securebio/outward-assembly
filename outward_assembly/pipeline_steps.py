@@ -387,7 +387,9 @@ def _subset_split_files_local(
     # Find nucleaze binary (needed for xargs/sh which may not inherit PATH)
     nucleaze_bin = shutil.which("nucleaze")
     if nucleaze_bin is None:
-        raise RuntimeError("nucleaze not found in PATH. Install via: cargo install --path /path/to/nucleaze")
+        raise RuntimeError(
+            "nucleaze not found in PATH. Install via: cargo install --path /path/to/nucleaze"
+        )
 
     # Build Nucleaze commands - equivalent to BBDuk with:
     #   rcomp=t -> --canonical (use canonical k-mer form)
@@ -622,18 +624,28 @@ def _frequency_filter_reads(workdir: Path, high_freq_kmers_path: Path, k: int) -
         subprocess.run(
             [
                 nucleaze_bin,
-                "--in", str(workdir / READS_1_FASTQ),
-                "--in2", str(workdir / READS_2_FASTQ),
-                "--outu", str(workdir / READS_FILTERED_1_FASTQ),
-                "--outu2", str(workdir / READS_FILTERED_2_FASTQ),
-                "--outm", "/dev/null",
-                "--outm2", "/dev/null",
-                "--ref", str(high_freq_kmers_path),
-                "--k", str(k),
+                "--in",
+                str(workdir / READS_1_FASTQ),
+                "--in2",
+                str(workdir / READS_2_FASTQ),
+                "--outu",
+                str(workdir / READS_FILTERED_1_FASTQ),
+                "--outu2",
+                str(workdir / READS_FILTERED_2_FASTQ),
+                "--outm",
+                "/dev/null",
+                "--outm2",
+                "/dev/null",
+                "--ref",
+                str(high_freq_kmers_path),
+                "--k",
+                str(k),
                 "--canonical",
-                "--minhits", "1",
+                "--minhits",
+                "1",
                 "--order",
-                "--threads", "4",
+                "--threads",
+                "4",
             ],
             stdout=log,
             stderr=log,
@@ -687,14 +699,20 @@ def _adapter_sanitize_kmer_queries(
 
     cmd_parts = [
         nucleaze_bin,
-        "--in", str(candidate_kmers_path),
-        "--outu", str(final_query_kmers_path),  # we want the unmatched candidate kmers
-        "--ref", str(adapters_path),
-        "--k", str(k),
+        "--in",
+        str(candidate_kmers_path),
+        "--outu",
+        str(final_query_kmers_path),  # we want the unmatched candidate kmers
+        "--ref",
+        str(adapters_path),
+        "--k",
+        str(k),
         "--canonical",
-        "--minhits", "1",
+        "--minhits",
+        "1",
         "--order",
-        "--threads", "4",
+        "--threads",
+        "4",
     ]
     with open(workdir / LOG_FILE, "a") as log:
         subprocess.run(cmd_parts, shell=False, check=True, stdout=log, stderr=log)

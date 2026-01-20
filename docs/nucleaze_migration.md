@@ -45,9 +45,24 @@ The Dockerfile uses a multi-stage build:
 1. **Builder stage**: Uses `rust:latest` to compile nucleaze from source
 2. **Runtime stage**: Uses `ubuntu:22.04` with only `zstd` installed
 
-### Workaround Note
+## Known Issues and Workarounds
 
-- **Stdin piping unreliable**: When running nucleaze with `--in stdin.fq` or `--in stdin` in a piped command (e.g., `cat file.fq | nucleaze --in stdin.fq ...`), nucleaze fails with "Error processing read sequences: No such file or directory (os error 2)" **Workaround**: Write input to a temp file first, then pass the file path to nucleaze. See `_subset_split_files_local()` in `pipeline_steps.py`.
+### Nucleaze stdin bug
+
+When running nucleaze with `--in stdin.fq` or `--in stdin` in a piped command (e.g., `cat file.fq | nucleaze --in stdin.fq ...`), nucleaze fails with "Error processing read sequences: No such file or directory (os error 2)". This affects both macOS and Linux.
+
+**Upstream issue**: https://github.com/jackdouglass/nucleaze/issues/XXX
+
+**Workaround**: Write input to a temp file first, then pass the file path to nucleaze. See `_subset_split_files_local()` in `pipeline_steps.py` and the NUCLEAZE process in `nextflow/main.nf`.
+
+### macOS megahit multi-threading bug
+
+MEGAHIT v1.2.9 crashes with a segmentation fault (exit code -11) on macOS when using `--num-cpu-threads > 1`. This affects both Intel and Apple Silicon Macs.
+
+**Upstream issue**: https://github.com/voutcn/megahit/issues/385
+**Potential fix**: https://github.com/voutcn/megahit/pull/387
+
+**Workaround**: The pipeline automatically forces `--num-cpu-threads 1` on macOS. See `_assemble_contigs()` in `pipeline_steps.py`. This makes assembly slower but functional.
 
 ## Parameter Mapping
 
@@ -113,7 +128,9 @@ Expected results with nucleaze migration: 70 tests pass, 5 fail (due to missing 
 
 ### K-mer Filter Microbenchmark
 
-Testing k-mer filtering only (941 read pairs):
+K-mer filtering is the step where Nucleaze **replaces BBDuk**. It finds reads sharing k-mers with the reference sequence. All downstream steps (assembly with megahit, contig subsetting) use unchanged code. Therefore, identical k-mer filter output guarantees identical final pipeline output.
+
+Testing k-mer filtering (941 read pairs, macOS):
 
 | Tool      | Time (s) | Output Reads | Output Hash                      |
 |-----------|----------|--------------|----------------------------------|
