@@ -4,6 +4,7 @@ nextflow.preview.output = true
 // Input: Paired-end reads (zstd compressed and interleaved), target sequence/k-mers of target sequence, k used for Nucleaze
 //    First input argument is a tuple (list of sample_divs, list of paths)
 // Output: Filtered forward and reverse reads that match the reference
+// Note: Uses temp file workaround for nucleaze stdin bug (https://github.com/jackdouglass/nucleaze/issues/XXX)
 process NUCLEAZE {
   label "medium"
   label "Nucleaze"
@@ -25,24 +26,32 @@ process NUCLEAZE {
       sample_div="\${samples[\$i]}"
       reads_file="\${files[\$i]}"
 
-      # Execute nucleaze with equivalent parameters to former BBDuk usage:
+      # Decompress to temp file (workaround for nucleaze stdin bug)
+      tmp_file="\${sample_div}_tmp.fastq"
+      zstdcat "\${reads_file}" > "\${tmp_file}"
+
+      # Run nucleaze with equivalent parameters to former BBDuk usage:
       #   rcomp=t -> --canonical
       #   minkmerhits=1 -> --minhits 1
       #   mm=f -> (default, exact matching)
       #   interleaved=t -> --interinput
       #   ordered=t -> --order
-      zstdcat "\${reads_file}" | nucleaze \\
-        --in stdin.fq \\
+      nucleaze \\
+        --in "\${tmp_file}" \\
         --ref ${ref_fasta_path} \\
-        --outm \${sample_div}_1.fastq \\
-        --outm2 \${sample_div}_2.fastq \\
+        --outm "\${sample_div}_1.fastq" \\
+        --outm2 "\${sample_div}_2.fastq" \\
+        --outu /dev/null \\
+        --outu2 /dev/null \\
         --k ${k} \\
         --canonical \\
         --minhits 1 \\
         --interinput \\
         --order \\
-        --threads ${task.cpus} \\
-        --maxmem ${task.memory.toGiga()}G
+        --threads ${task.cpus}
+
+      # Clean up temp file
+      rm "\${tmp_file}"
     done
     """
 }
@@ -61,11 +70,11 @@ process CONCAT_READS{
   script:
     """
     # Check that forward and reverse read counts match
-    [ \$(echo ${fwd_reads} | wc -w) -eq \$(echo ${rev_reads} | wc -w) ] || { 
+    [ \$(echo ${fwd_reads} | wc -w) -eq \$(echo ${rev_reads} | wc -w) ] || {
       echo "Error: Unequal number of forward (\$(echo ${fwd_reads} | wc -w)) and reverse (\$(echo ${rev_reads} | wc -w)) read files"
       exit 1
     }
-    
+
     # Process forward reads
     for fwd in ${fwd_reads}; do
       filename=\$(basename "\$fwd" _1.fastq)
@@ -86,7 +95,7 @@ workflow {
     reads = Channel.fromPath(params.s3_files)
       .splitCsv(header: false, sep: "\t")
       .map { row -> tuple(row[0], row[1]) }
-    
+
     // Batch inputs
     batch_size = params.batch_size ?: 10
     batched_reads = reads
@@ -96,7 +105,7 @@ workflow {
         def files = batch.collect { file(it[1]) }
         tuple(sample_divs, files)
       }
-    
+
     // Process batches
     nucleaze_results = NUCLEAZE(batched_reads, params.ref_fasta_path, params.kmer)
 
@@ -104,7 +113,7 @@ workflow {
     fwd_reads = nucleaze_results.fwd_reads
       .flatten()
       .filter { it.size() > 0 }
-      .toSortedList { a, b -> 
+      .toSortedList { a, b ->
         a.name.tokenize('_')[0] <=> b.name.tokenize('_')[0]
       }
     rev_reads = nucleaze_results.rev_reads
