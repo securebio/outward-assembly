@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 import textwrap
 from multiprocessing import cpu_count
 from pathlib import Path
@@ -12,7 +13,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from .basic_seq_operations import SeqOrientation
-from .io_helpers import PathLike, S3Files, concat_and_tag_fastq
+from .io_helpers import PathLike, S3Files, concat_and_tag_fastq, s3_stream_cmd
 from .overlap_graph import get_overlapping_sequence_ids
 
 # File names used across functions
@@ -109,6 +110,13 @@ def _assemble_contigs(workdir: PathLike, iter: int, freq_filter: bool) -> None:
     ]
     # fmt: on
     cmds.append(cmd)
+
+    # Workaround for megahit multi-threading bug on macOS (segfaults with threads > 1)
+    # See: https://github.com/voutcn/megahit/issues/385
+    # Potential fix: https://github.com/voutcn/megahit/pull/387
+    if sys.platform == "darwin":
+        for cmd in cmds:
+            cmd.extend(["--num-cpu-threads", "1"])
 
     log_path = workdir / LOG_FILE
     for cmd in cmds:
@@ -400,7 +408,7 @@ def _subset_split_files_local(
     # Note: nucleaze requires both --outm/--outm2 AND --outu/--outu2 when using paired input
     # We discard unmatched reads to /dev/null
     cmds = [
-        f"aws s3 cp {rec.s3_path} - | "
+        f"{s3_stream_cmd(rec.s3_path)} | "
         f"zstdcat - | "
         f"{nucleaze_bin} --in - "
         f"--outm {workdir / rec.filename}_1.fastq --outm2 {workdir / rec.filename}_2.fastq "

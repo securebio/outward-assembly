@@ -2,6 +2,8 @@ import csv
 import itertools
 import os
 import re
+import shutil
+from functools import lru_cache
 from pathlib import Path
 from typing import Iterable, List, NamedTuple
 
@@ -9,6 +11,32 @@ import boto3
 import yaml
 
 PathLike = str | Path
+
+
+@lru_cache(maxsize=1)
+def _get_s3_stream_tool() -> str:
+    """
+    Check which streaming tool is available
+    """
+    if shutil.which("s5cmd"):
+        return "s5cmd"
+    if shutil.which("aws"):
+        return "aws"
+    raise RuntimeError(
+        "No S3 streaming tool found"
+        "Please install s5cmd (recommended): https://github.com/peak/s5cmd "
+        "or aws cli: https://aws.amazon.com/cli/"
+    )
+
+
+def s3_stream_cmd(s3_path: str) -> str:
+    """
+    Get the shell command to stream an S3 object to stdout
+    """
+    tool = _get_s3_stream_tool()
+    if tool == "s5cmd":
+        return f"s5cmd cat {s3_path}"
+    return f"aws s3 cp {s3_path} -"
 
 
 class S3Record(NamedTuple):

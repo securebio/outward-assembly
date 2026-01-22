@@ -8,7 +8,7 @@ from multiprocessing import cpu_count
 from pathlib import Path
 from typing import Optional
 
-from .io_helpers import PathLike, S3Files
+from .io_helpers import PathLike, S3Files, s3_stream_cmd
 
 # kmc and kmc_tools are expected to be available on PATH via the oa-tools conda environment
 
@@ -52,7 +52,7 @@ def _make_kmer_count_commands(
         # Build command sequence
         cmd = (
             f"mkdir -p {tmp_dir} {kmc_tmp_dir} && "
-            f"aws s3 cp {rec.s3_path} - | "
+            f"{s3_stream_cmd(rec.s3_path)} | "
             f"zstd -d - -o {tmp_fastq} && "
             f"kmc -k{k} "  # k-mer length
             f"-cs{max_count} "  # max count before counter saturates
@@ -230,18 +230,16 @@ def frequency_filter_reads(
 
     # Create Nucleaze+compression commands
     # --outu outputs reads that do NOT match (i.e., reads without high-freq kmers)
-    # Note: nucleaze stdin handling is unreliable in some environments (see docs/nucleaze_migration.md)
-    # so we use temp files instead of piping through stdin/stdout
     cmds = [
-        f"aws s3 cp {rec.s3_path} - | zstdcat - > {out_dir / rec.filename}_tmp_in.fq && "
-        f"{nucleaze_bin} --in {out_dir / rec.filename}_tmp_in.fq "
+        f"{s3_stream_cmd(rec.s3_path)} | zstdcat - | "
+        f"{nucleaze_bin} --in - "
         f"--outu {out_dir / rec.filename}_tmp_out.fq "
         f"--outm /dev/null "
         f"--ref {high_freq_kmers_path} --k {k} "
         f"--canonical --minhits 1 --interinput "
         f"--threads 3 && "
         f"zstd -q -T3 < {out_dir / rec.filename}_tmp_out.fq > {p_out} && "
-        f"rm {out_dir / rec.filename}_tmp_in.fq {out_dir / rec.filename}_tmp_out.fq"
+        f"rm {out_dir / rec.filename}_tmp_out.fq"
         for rec, p_out in zip(s3_records, out_paths)
     ]
 
