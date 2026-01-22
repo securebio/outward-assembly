@@ -47,14 +47,6 @@ The Dockerfile uses a multi-stage build:
 
 ## Known Issues and Workarounds
 
-### Nucleaze stdin bug
-
-When running nucleaze with `--in stdin.fq` or `--in stdin` in a piped command (e.g., `cat file.fq | nucleaze --in stdin.fq ...`), nucleaze fails with "Error processing read sequences: No such file or directory (os error 2)". This affects both macOS and Linux.
-
-**Upstream issue**: https://github.com/jackdouglass/nucleaze/issues/XXX
-
-**Workaround**: Write input to a temp file first, then pass the file path to nucleaze. See `_subset_split_files_local()` in `pipeline_steps.py` and the NUCLEAZE process in `nextflow/main.nf`.
-
 ### macOS megahit multi-threading bug
 
 MEGAHIT v1.2.9 crashes with a segmentation fault (exit code -11) on macOS when using `--num-cpu-threads > 1`. This affects both Intel and Apple Silicon Macs.
@@ -150,9 +142,8 @@ Testing full outward assembly pipeline with megahit (1882 reads):
 
 **Key findings**:
 1. **Output is identical** - Both tools produce exactly the same results
-2. **BBDuk slightly faster in this test** due to the temp file workaround for nucleaze's stdin bug adding ~3s I/O overhead -- this should change once the stdin bug is squashed **TODO** remove temp file workaround!
-3. **Assembly time dominates** - megahit takes most of the time, making k-mer filtering differences less significant
-4. **Expected with larger data**: Nucleaze should still win with many parallel invocations where JVM startup overhead compounds
+2. **Assembly time dominates** - megahit takes most of the time, making k-mer filtering differences less significant
+3. **Expected with larger data**: Nucleaze should win with many parallel invocations where JVM startup overhead compounds
 
 Run benchmarks yourself:
 ```bash

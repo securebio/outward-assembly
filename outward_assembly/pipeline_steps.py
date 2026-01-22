@@ -399,18 +399,16 @@ def _subset_split_files_local(
     #   ordered=t -> --order
     # Note: nucleaze requires both --outm/--outm2 AND --outu/--outu2 when using paired input
     # We discard unmatched reads to /dev/null
-    # Note: nucleaze stdin handling is unreliable in some environments, so we use temp files
     cmds = [
         f"aws s3 cp {rec.s3_path} - | "
-        f"zstdcat - > {workdir / rec.filename}_tmp.fastq && "
-        f"{nucleaze_bin} --in {workdir / rec.filename}_tmp.fastq "
+        f"zstdcat - | "
+        f"{nucleaze_bin} --in - "
         f"--outm {workdir / rec.filename}_1.fastq --outm2 {workdir / rec.filename}_2.fastq "
         f"--outu /dev/null --outu2 /dev/null "
         f"--ref {ref_fasta_path} --k {read_subset_k} "
         f"--canonical --minhits 1 --interinput "
         f"{'--order ' if ordered else ''}"
-        f"--threads {n_threads} && "
-        f"rm {workdir / rec.filename}_tmp.fastq"
+        f"--threads {n_threads}"
         for rec in s3_records
     ]
 

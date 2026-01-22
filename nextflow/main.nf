@@ -4,7 +4,6 @@ nextflow.preview.output = true
 // Input: Paired-end reads (zstd compressed and interleaved), target sequence/k-mers of target sequence, k used for Nucleaze
 //    First input argument is a tuple (list of sample_divs, list of paths)
 // Output: Filtered forward and reverse reads that match the reference
-// Note: Uses temp file workaround for nucleaze stdin bug (https://github.com/jackdouglass/nucleaze/issues/XXX)
 process NUCLEAZE {
   label "medium"
   label "Nucleaze"
@@ -26,18 +25,14 @@ process NUCLEAZE {
       sample_div="\${samples[\$i]}"
       reads_file="\${files[\$i]}"
 
-      # Decompress to temp file (workaround for nucleaze stdin bug)
-      tmp_file="\${sample_div}_tmp.fastq"
-      zstdcat "\${reads_file}" > "\${tmp_file}"
-
       # Run nucleaze with equivalent parameters to former BBDuk usage:
       #   rcomp=t -> --canonical
       #   minkmerhits=1 -> --minhits 1
       #   mm=f -> (default, exact matching)
       #   interleaved=t -> --interinput
       #   ordered=t -> --order
-      nucleaze \\
-        --in "\${tmp_file}" \\
+      zstdcat "\${reads_file}" | nucleaze \\
+        --in - \\
         --ref ${ref_fasta_path} \\
         --outm "\${sample_div}_1.fastq" \\
         --outm2 "\${sample_div}_2.fastq" \\
@@ -49,9 +44,6 @@ process NUCLEAZE {
         --interinput \\
         --order \\
         --threads ${task.cpus}
-
-      # Clean up temp file
-      rm "\${tmp_file}"
     done
     """
 }
