@@ -18,30 +18,30 @@ Visualizes how paired-end reads align to an assembled contig, highlighting a see
 ## Requirements
 
 ```bash
-uv pip install -r requirements.txt  # Installs Pillow for image rendering
+uv sync --extra pileup  # Installs Pillow and pysam for pileup visualization
 ```
 
 ## Inputs
 
-| Input | Description |
-|-------|-------------|
-| `fwd_fastq` | Forward reads (R1) FASTQ file |
-| `rev_fastq` | Reverse reads (R2) FASTQ file |
-| `contigs_fasta` | Assembled contigs FASTA file |
-| `contig_name` | Name of the contig to visualize |
-| `seed_sequence` | DNA sequence to highlight (e.g., the assembly seed) |
-| `output` | Output PNG path |
+| Argument | Description |
+|----------|-------------|
+| `--fwd-fastq` | Forward reads (R1) FASTQ file |
+| `--rev-fastq` | Reverse reads (R2) FASTQ file |
+| `--contigs-fasta` | Assembled contigs FASTA file |
+| `--contig-name` | Name of the contig to visualize |
+| `--seed-sequence` | DNA sequence to highlight (e.g., the assembly seed) |
+| `--output` | Output PNG path |
 
 ## Usage
 
 ```bash
-python pileup_visualization.py \
-    reads_R1.fastq \
-    reads_R2.fastq \
-    contigs.fasta \
-    "contig_1" \
-    "ATCGATCGATCG" \
-    output.png
+python -m outward_assembly.pileup \
+    --fwd-fastq reads_R1.fastq \
+    --rev-fastq reads_R2.fastq \
+    --contigs-fasta contigs.fasta \
+    --contig-name "contig_1" \
+    --seed-sequence "ATCGATCGATCG" \
+    --output output.png
 ```
 
 ## Optional Arguments
@@ -69,16 +69,31 @@ A PNG image showing:
 | Muted blue | Matching bases (non-seed read) |
 | Orange | Matching bases within the seed region |
 | Red | Mismatched bases |
-| Black | Deletions |
+| Black | Deletions (bases in contig but not in read) |
 | Cyan | Soft-clipped bases |
-| Magenta | Insertion markers |
+| Pink line | Insertion marker (inline) |
+| Magenta | Insertion count (edge sidebars) |
 | Light grey | Unsequenced insert (gap between mates) |
+
+### Insertion and Deletion Semantics
+
+The **contig** is the reference sequence. Each column in the visualization corresponds to one contig position.
+
+- **Deletion**: Bases present in the contig but absent from the read. These are shown as black pixels inline, since they occupy contig positions.
+
+- **Insertion**: Bases present in the read but absent from the contig. Since there's no contig column for these bases, insertions can't be shown inline at full resolution.
+
+**How insertions are displayed:**
+
+| Location | Appearance | Meaning |
+|----------|------------|---------|
+| **Inline** | Thin pink vertical line at right edge of base | Marks the position *after which* an insertion occurred. The base color is preserved; the pink line indicates "an insertion starts here." The size of the insertion is not shown. |
+| **Edge sidebars** | Solid magenta pixels | The left/right margins show the *total count* of inserted bases for the upstream/downstream mate. |
 
 ## Python API
 
-(probably not necessary, but just in case we want to do something else with the image besides save it with Pillow)
 ```python
-from pileup_visualization import create_pileup_visualization
+from outward_assembly.pileup import create_pileup_visualization
 
 image = create_pileup_visualization(
     fwd_fastq="reads_R1.fastq",

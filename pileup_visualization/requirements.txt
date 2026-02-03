@@ -1,3 +1,0 @@
-# Additional dependencies for pileup visualization
-# (numpy, pysam, biopython assumed from main project)
-Pillow>=9.0.0
