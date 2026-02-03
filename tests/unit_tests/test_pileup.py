@@ -1,4 +1,4 @@
-""" pileup smoke tests """
+"""pileup smoke tests"""
 
 import numpy as np
 import pytest
