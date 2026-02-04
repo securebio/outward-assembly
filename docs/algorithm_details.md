@@ -2,6 +2,8 @@
 
 While the basic logic of outward assembly -- filter reads, assemble, repeat -- is simple, we've introduced a few complications to avoid potential pitfalls and improve performance.
 
+_Note:_ this document motivates outward assembly's computational design from the perspective of [SecureBio](https://securebio.org/)'s threat detection work.
+
 ## Input data
 The vast majority of outward assembly computational time is spent scanning reads to find those few reads with kmers matching the seed or contigs. We have a lot of reads! It's best to store these reads in S3 and stream them, rather than accessing them on local disk (i.e. an EBS volume on EC2):
 * Even very expensive EBS volumes have limited throughput, whereas EC2 instances have comparatively high network bandwidth. Thus it's faster to stream large amounts of data from S3 than from a mounted EBS volume.
@@ -17,7 +19,7 @@ Outward assembly only accepts input reads that are (a) stored in S3 (b) in SIZ f
 ## Overlapping contigs
 Consider a genome with sections `ABCBD` with the seed sequence contained in the repeated `B` region. With sufficiently plentiful and long reads, an assembler might correctly recover the full genome, repeats and all. However, in practice -- and especially in outward assembly -- we'll run into ambiguities: after the contig has grown from the seed to the entire `B` region, it will be ambiguous if `B` should be preceeded by `A` or `C` and succeeded by `C` or `D`.
 
-Typically assemblers (including megahit) deal with uncertainty -- branches in the assembly graph -- by forming new contigs for each branch [that can't be pruned]. In this case, as the assembler reaches assembly graph branch points at the end of the `B` region, it'll form new contigs that partially overlap `B`, like so:
+Typically assemblers (including MEGAHIT) deal with uncertainty -- branches in the assembly graph -- by forming new contigs for each branch [that can't be pruned]. In this case, as the assembler reaches assembly graph branch points at the end of the `B` region, it'll form new contigs that partially overlap `B`, like so:
 
 ![ABCBD contigs](../readme_images/abcbd_contigs.png)
 
@@ -31,7 +33,7 @@ So during the step "filter contigs to those that contain the seed," the full out
 Ideally, this modified filtering step retains all contigs that could be stitched together with a seed-containing contig while discarding irrelevant unrelated contigs.
 
 ## Assembly strictness and coverage thresholds
-Sequencing errors are common, and assemblers like megahit use coverage depth to decide when to apply error reduction procedures like tip pruning and bubble popping. Unfortunately, we're often assembling a sequence with very low coverage; maybe we've seen the seed just a handful of times -- if we've seen the seed a bunch and have deep coverage, we should have been trying to assemble one delivery ago.
+Sequencing errors are common, and assemblers like MEGAHIT use coverage depth to decide when to apply error reduction procedures like tip pruning and bubble popping. Unfortunately, we're often assembling a sequence with very low coverage; maybe we've seen the seed just a handful of times -- if we've seen the seed a bunch and have deep coverage, we should have been trying to assemble one delivery ago.
 
 Given the possibility of low coverage, we can't always set stringent coverage thresholds in assembly; that might prevent us from building longer contigs with the few (possibly correct) reads we have. We'd generally like to be as strict as possible about coverage while still managing to extend the contigs from last iteration.
 
@@ -44,7 +46,7 @@ Technical chimeras are common sources of sequencing errors. When a technical chi
 * Iteration `i+1`: pull in all reads which contain kmers from iteration `i` contigs, so end up pulling in 5+% of all reads because rRNA is super common.
 * Iteration `i+1`: with hundreds of millions of reads to assemble, assembly takes a prohibitively long time.
 
-Outward assembly contains a simple escape hatch to prevent this situation: if any iteration pulls in more than `excess_read_thresh` reads, the algorithm exits early. But it's better if we never reach this situation in the first place! The key insight here is that frequenly occurring (like rRNA kmers) are highly unlikely to be part of the rare genome that contains the seed.
+Outward assembly contains a simple escape hatch to prevent this situation: if any iteration pulls in more than `excess_read_thresh` reads, the algorithm exits early. But it's better if we never reach this situation in the first place! The key insight here is that frequenly occurring kmers (eg rRNA kmers) are highly unlikely to be part of the rare genome that contains the seed.
 
 Outward assembly acccepts an optional path to a fasta file of high frequency kmers (or high frequency sequences of any length, though typically this file is generated from kmer counts). If provided, these high frequency kmers are used to generate a "frequency filtered" (`_ff`) set of reads that don't contain a high frequency kmer. These reads are used for one assembly each iteration. The assembly over frequency filtered reads is the first (most preferred) subiteration, i.e. outward assembly only uses non-frequency-filtered reads when assembly frequency-filtered reads fail to extend the previous iteration's contigs.
 

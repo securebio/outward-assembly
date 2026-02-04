@@ -1,3 +1,6 @@
+# example assembly work dir
+docs/example-assembly-dir/work/**
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
