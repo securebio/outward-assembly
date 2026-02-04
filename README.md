@@ -26,7 +26,7 @@ See [installation docs](docs/installation.md) for more details.
 ### Running outward assembly
 
 Outward assembly's main entry point is the Python function `outward_assembly`, and a command line interface is not provided.
-Typically you'll run outward assembly by executing a short Python script (TODO: example) which configures and calls OA:
+Typically you'll run outward assembly by executing a short Python script ([example](docs/example-assembly-dir/script.py)) which configures and calls OA:
 `uv run your_oa_script.py`.
 
 The [usage docs](docs/usage.md) contain more details and guidance.
@@ -37,3 +37,4 @@ The [usage docs](docs/usage.md) contain more details and guidance.
 - [Usage](docs/usage.md)
 - [Algorithm details](docs/algorithm_details.md)  
 - [Changelog](CHANGELOG.md)
+- [Experimental features](docs/experimental.md)

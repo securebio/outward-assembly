@@ -19,7 +19,7 @@ With *automated* mode, you can strategically begin with a subset of your data an
 
 ### Usage
 
-The primary entrypoint to the *automated* outward assembly is `automate_assembly.py` [^1]. This script takes in a yaml file as input, which specifies the parameters used for running the pipeline.
+The primary entrypoint to *automated* outward assembly is `automate_assembly.py`. This script takes in a yaml file as input, which specifies the parameters used for running the pipeline.
 
 *Disclaimer: right now, the `automate_assembly.py` script does not implement all the parameters of `outward_assembly`.*
 
@@ -79,7 +79,7 @@ decision: (optional)
 The automation script can be run by executing the following command:
 
 ```bash
-python automate_assembly.py --input_config <PATH TO YAML FILE>
+uv run automate_assembly.py --input_config <PATH TO YAML FILE>
 ```
 
 ### Working Directory Note
