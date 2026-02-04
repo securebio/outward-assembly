@@ -11,29 +11,27 @@ For standard outward assembly usage, see [usage.md](usage.md).
 
 ## Automated Mode
 
-*Automated* mode is designed for users who need to run outward assembly iteratively. This would include a user who is unsure which samples contain reads that will successfully assemble with their seed sequence, and therefore would want to search through their data iteratively.
+*Automated* mode is designed for users who need to run outward assembly iteratively. This could include users who are unsure which samples contain reads that will successfully assemble with their seed sequence, and therefore want to search through their data iteratively.
 
 With *automated* mode, you can strategically begin with a subset of your data and progressively expand your search if initial assembly results are insufficient. The system intelligently adjusts parameters between iterations based on your defined strategy, optimizing both computational resources and discovery potential.
 
-*Disclaimer: Automated mode does not support multiline sequences for FASTQ files. We plan on adding support for this in the future.*
+*Warning: automated mode does not support multiline sequences in FASTQ files.*
 
 ### Usage
 
-The primary entrypoint to the *automated* outward assembly will be `automate_assembly.py` [^1]. This script takes in a yaml file as input, which specifies all of the parameters that will be used for running the pipeline.
+The primary entrypoint to the *automated* outward assembly is `automate_assembly.py` [^1]. This script takes in a yaml file as input, which specifies the parameters used for running the pipeline.
 
-[^1]: Right now, the `automate_assembly.py` script does not implement all the parameters of `outward_assembly`, however we plan on adding them in the futures.
+*Disclaimer: right now, the `automate_assembly.py` script does not implement all the parameters of `outward_assembly`.*
 
 Generally, using this script will look like the following:
 1. Prepare a list of datasets along with priorities for each of them.
-   * We are currently working on creating a script that will automate this process
 2. (Optional) Add your automation strategy to `outward_assembly/strategy.py`
    * The user may also decide to use this script without the automation turned on
-   * We plan on making a default automation configuration in the future
 3. Write your configuration in a yaml file.
 4. Run `automate_assembly.py` and pass in your yaml file.
 
 #### 1. Prepare a list of datasets along with priorities for each of them.
-The YAML configuration file requires a list of S3 paths to datasets in ZST format, each with an assigned priority.
+The YAML configuration file requires a list of S3 paths to datasets in SIZ format, each with an assigned priority.
 
 This prioritization system allows you to begin with a smaller dataset subset and progressively include more data if initial assembly results are insufficient. When automation is enabled, the pipeline can automatically advance to datasets with the next priority level if the current assembly results don't meet the criteria defined in your strategy. Importantly, the pipeline will only look at the datasets within the current priority level, so if you want data in earlier priority levels to be considered, make sure to include them in the current priority level (in practice, this means that you will have the same data in multiple priority levels).
 

@@ -7,6 +7,8 @@ import outward_assembly as oa_module
 from outward_assembly.io_helpers import s3_files_with_prefix
 from outward_assembly.pipeline import outward_assembly
 from pathlib import Path
+import logging
+logging.basicConfig(level=logging.INFO)
 
 ##
 # Set up paths
@@ -44,12 +46,12 @@ print(f"Got {len(paths)} paths")
 
 high_freq_path = work_dir_parent / "kmers/high_freq_kmers.fasta"
 if not Path(high_freq_path).is_file():
-    from outward_assembly.kmer_freq_filter import _high_freq_kmers_split_files
+    from outward_assembly.kmer_freq_filter import high_freq_kmers_split_files
     from outward_assembly.io_helpers import process_s3_paths
 
-    # _high_freq_kmers_split_files defaults to k=31; make sure the kmer size used here
+    # high_freq_kmers_split_files defaults to k=31; make sure the kmer size used here
     # is at least as large as the read_subset_k used in outward_assembly
-    high_freq_path = _high_freq_kmers_split_files(
+    high_freq_path = high_freq_kmers_split_files(
         # Adjust the step size in the below range to control the fraction of read files we compute
         # high frequency kmers in. In this example script we want to hit every file, but in
         # production work with thousands of SIZ chunks, you might do range(0, len(paths), 500)
