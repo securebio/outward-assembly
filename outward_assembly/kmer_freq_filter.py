@@ -67,7 +67,7 @@ def _make_kmer_count_commands(
     return commands
 
 
-def _high_freq_kmers_split_files(
+def high_freq_kmers_split_files(
     s3_records: S3Files,
     workdir: PathLike,
     *,
@@ -216,7 +216,7 @@ def frequency_filter_reads(
         num_parallel = max(1, cpu_count() // 4)
 
     # Get high-frequency kmers
-    high_freq_kmers_path = _high_freq_kmers_split_files(
+    high_freq_kmers_path = high_freq_kmers_split_files(
         s3_records, workdir, num_parallel=num_parallel, min_kmer_freq=min_kmer_freq, k=k
     )
 
