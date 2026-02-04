@@ -15,7 +15,7 @@ Table of Contents:
 
 The primary entrypoint to outward assembly is the Python function `outward_assembly` in `outward_assembly/pipeline.py`; a command line interface does not (yet) exist. See the docstring of `outward_assembly` for a detailed description of keyword parameters. The required parameters are:
 * The path to a seed sequence (fasta) to assemble outward from;
-* A list of s3 paths of reads to assemble. Reads must be in [SIZ format](./algorithm_details.md#input-data);
+* A list of S3 paths of reads to assemble. Reads must be in [SIZ format](./algorithm_details.md#input-data);
 * Path for output contigs.
 
 Typically, you'll gather your inputs (seed sequences, warm start sequences, adapter sequences, etc.) into a directory along with a short Python script that calls `outward_assembly`. The docs contain a thoroughly-commented runnable [example](example-assembly-dir/script.py) of this workflow.
@@ -28,7 +28,7 @@ Outward assembly generates lots of intermediate results in its working directory
 
 Outward assembly requires streaming split, interleaved, zstd-compressed reads from S3; reads in other formats or locations are not (yet) supported. A script that calls `outward_assembly` typically begins by specifying the S3 paths of the read files to assemble; see `s3_files_with_prefix` in [io_helpers.py](../outward_assembly/io_helpers.py). Typical usage is to define a few prefixes (relative to bucket root) and collect all paths matching these prefixes:
 ```python
-prefix = [
+prefixes = [
 	"deliveryA/siz/",
 	"deliveryB/siz/"
 ]
@@ -54,7 +54,7 @@ paths = [p for prefix in prefixes for p in s3_files_with_prefix("my-bucket", pre
 ├── reads_2.fastq
 ├── reads_ff_1.fastq # _ff reads only appear if frequency filtering is enabled
 ├── reads_ff_2.fastq
-├── reads_untrimmed_1.fastq # _untrimmed reads only appear if adapter trimming is eabled
+├── reads_untrimmed_1.fastq # _untrimmed reads only appear if adapter trimming is enabled
 └── reads_untrimmed_2.fastq
 └── config.yaml # the configuration file used to run the pipeline
 ```
@@ -76,7 +76,7 @@ The seed serves two purposes in outward assembly:
 1. It's the initial contig, i.e. we use kmers from the seed to filter reads in the first iteration.
 2. It's used to filter contigs at the end of each iteration.
 
-There's no error tolerance  in the latter filtering step: contigs must contain your seed exactly (up to reverse complementing). Therefore your seed really must be error-free. If your seed has an error (relative to the likely genome that generated the reads you're interested in), then the following sad sequence occurs:
+There's no error tolerance in the latter filtering step: contigs must contain your seed exactly (up to reverse complementing). Therefore your seed really must be error-free. If your seed has an error (relative to the likely genome that generated the reads you're interested in), then the following sad sequence occurs:
 1. Outward assemble uses the seed to find read pairs containing seed kmers.
 2. These read pairs are assembled in the first iteration.
 3. No contig output in the first iteration exactly contains the seed.
@@ -98,7 +98,7 @@ In practice, start with a `read_subset_k` around 26. If you're failing to find g
 
 Almost always, outward assembly runing time is dominated by the parallel BBDuk read searches: looking through a large haystack of reads to find the few needle-reads that contain kmers from our contigs. To make this search as fast as possible, you really want to be running on an EC2 instance in the same region as your data-containing S3 buckets. (This will also minimize data movement costs, since data S3 -> EC2 within region is free.)
 
-The read search is compute and network bottlenecked, so consider compute-optimized instances like the c7a/c8a families. Outward assembly will run one BBDuk search process per 4 vCPU cores. *Very* roughly, streaming, decompressing, and searching a 1 million read pair SIZ chunk takes 4 cores 15 seconds, so with a `n` core machine you can search `n`-million read pairs per minute.
+The read search is compute and network bottlenecked, so consider compute-optimized instances like the c7a/c8a families. Outward assembly will run one BBDuk search process per 4 vCPU cores. *Very* roughly, streaming, decompressing, and searching a 1 million read pair SIZ chunk takes 4 cores about 15 seconds, so with a `n` core machine you can search `n`-million read pairs per minute.
 
 ## (Optional) AWS Batch for read search
 
