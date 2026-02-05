@@ -40,7 +40,7 @@ jobs:
       shell: bash -l {0}
       run: |
         conda activate oa-tools
-        uv sync --extra dev
+        uv sync --extra dev --extra pileup
 
     - name: ruff
       shell: bash -l {0}
