@@ -7,3 +7,4 @@ dependencies:
   - megahit>=1.2,<2
   - fastp>=0.24,<1
   - kmc>=3.2.4,<4
+  - openjdk>=17,<25  # Nextflow requires Java 17-24
