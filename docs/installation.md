@@ -6,6 +6,8 @@ By default, the entire pipeline runs on your local machine. For very large datas
 
 ## Basic requirements
 
+Outward assembly only supports Linux.
+
 ### Python dependencies
 
 Python dependencies are managed with [uv](https://docs.astral.sh/uv/). [Install](https://docs.astral.sh/uv/getting-started/installation/) uv if you don't already have it. Then from the base repository directory:
