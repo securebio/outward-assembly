@@ -2,16 +2,16 @@
 
 Visualizes how paired-end reads align to an assembled contig, highlighting a seed sequence of interest.
 
-![Example pileup visualization](example_pileup_tiny.png)
+![Example pileup visualization](tiny_pileup.png)
 
 <details>
 <summary>More examples</summary>
 
-**25 reads:**
-![Small pileup example](example_pileup_small.png)
+**40 reads:**
+![Medium pileup example](medium_pileup.png)
 
-**100 reads:**
-![Larger pileup example](example_pileup.png)
+**150 reads:**
+![Large pileup example](big_pileup.png)
 
 </details>
 
@@ -65,8 +65,8 @@ A PNG image showing:
 
 | Color | Meaning |
 |-------|---------|
-| Blue | Matching bases (seed-containing read) |
-| Muted blue | Matching bases (non-seed read) |
+| Blue | Matching bases (read pair contains entire seed) |
+| Muted blue | Matching bases (read pair does not contain entire seed) |
 | Orange | Matching bases within the seed region |
 | Red | Mismatched bases |
 | Black | Deletions (bases in contig but not in read) |

@@ -3,12 +3,15 @@
 import numpy as np
 import pytest
 
-from outward_assembly.pileup import (
-    DEFAULT_COLORS,
-    PileupRenderer,
-    create_pileup_visualization,
-    find_seed_positions,
+pileup = pytest.importorskip(
+    "outward_assembly.pileup",
+    reason="pileup module not available (install with: uv sync --extra pileup)",
 )
+
+DEFAULT_COLORS = pileup.DEFAULT_COLORS
+PileupRenderer = pileup.PileupRenderer
+create_pileup_visualization = pileup.create_pileup_visualization
+find_seed_positions = pileup.find_seed_positions
 
 
 class TestPileupImports:

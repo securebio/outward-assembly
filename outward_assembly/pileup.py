@@ -42,8 +42,8 @@ class PileupReadPairRow:
         start_coord: Contig coordinate where this row begins (can be negative)
         ins_upstream: Number of insertions in the upstream mate
         ins_downstream: Number of insertions in the downstream mate
-        contains_seed: Whether this read pair overlaps the seed region
-        insertion_positions: Set of indices (into colors array) where insertions occur
+        contains_seed: Whether this read pair spans the entire seed (not counting deletions)
+        insertion_positions: Set of indices where insertions occur
     """
 
     colors: np.ndarray
@@ -58,15 +58,6 @@ class PileupReadPairRow:
             self.insertion_positions = set()
 
 
-# Default color palette
-#
-# Two-stage coloring for match bases:
-#   Stage 1 (process_mate): All matching bases are initially colored with "match_and_contains_seed".
-#            We don't yet know if the read pair will cover the seed.
-#   Stage 2 (process_read_pair / get_read_pair_rows): After processing both mates, if the read pair
-#            doesn't cover the seed, adjust_colors_for_noseed() recolors match bases to "match_no_seed".
-# This approach avoids needing a second pass through the alignment.
-#
 DEFAULT_COLORS = {
     "match_and_contains_seed": np.array(
         [74, 144, 226, 255], dtype=np.uint8
@@ -262,10 +253,10 @@ def process_mate(
         colors: Color palette dict
 
     Returns:
-        (color_array, start_coord, end_coord, insertion_count, hit_seed, insertion_positions)
+        (color_array, start_coord, end_coord, insertion_count, seed_hits, insertion_positions)
         color_array is shape (N, 4) RGBA or empty (0, 4) array
         start_coord/end_coord are in contig coordinates (can be negative)
-        hit_seed is True if this mate overlaps any seed position
+        seed_hits is the set of seed positions that this mate has sequenced bases at
         insertion_positions is set of indices into color_array where insertions occur
     """
     if read.cigartuples is None:
@@ -274,7 +265,7 @@ def process_mate(
             read.reference_start,
             read.reference_start,
             0,
-            False,
+            set(),
             set(),
         )
 
@@ -285,7 +276,7 @@ def process_mate(
     color_array = np.empty((estimated_size, 4), dtype=np.uint8)
     color_idx = 0
     insertions = 0
-    hit_seed = False
+    seed_hits = set()
     insertion_positions = set()
 
     query_pos = 0
@@ -304,7 +295,7 @@ def process_mate(
                     ref_base = "N"
 
                 if ref_pos in seed_positions:
-                    hit_seed = True
+                    seed_hits.add(ref_pos)
                     if read_base == ref_base:
                         color_array[color_idx] = colors["seed"]
                     else:
@@ -322,7 +313,7 @@ def process_mate(
             for _ in range(length):
                 if ref_pos in seed_positions:
                     color_array[color_idx] = colors["seed"]
-                    hit_seed = True
+                    seed_hits.add(ref_pos)
                 else:
                     color_array[color_idx] = colors["match_and_contains_seed"]
                 color_idx += 1
@@ -333,7 +324,7 @@ def process_mate(
             for _ in range(length):
                 if ref_pos in seed_positions:
                     color_array[color_idx] = colors["seed_mismatch"]
-                    hit_seed = True
+                    seed_hits.add(ref_pos)
                 else:
                     color_array[color_idx] = colors["mismatch"]
                 color_idx += 1
@@ -381,7 +372,7 @@ def process_mate(
         color_array = np.concatenate([leading_soft_clip, color_array])
 
     end_coord = start_coord + len(color_array)
-    return color_array, start_coord, end_coord, insertions, hit_seed, insertion_positions
+    return color_array, start_coord, end_coord, insertions, seed_hits, insertion_positions
 
 
 def adjust_colors_for_noseed(
@@ -429,14 +420,20 @@ def process_read_pair(
     Returns:
         PileupReadPairRow or None if processing fails
     """
-    up_colors, up_start, up_end, up_ins, up_hit_seed, up_ins_pos = process_mate(
+    up_colors, up_start, up_end, up_ins, left_seed_hits, up_ins_pos = process_mate(
         upstream, contig_seq, seed_positions, colors
     )
-    down_colors, down_start, down_end, down_ins, down_hit_seed, down_ins_pos = process_mate(
-        downstream, contig_seq, seed_positions, colors
+    down_colors, down_start, down_end, down_ins, right_seed_hits, down_ins_pos = (
+        process_mate(downstream, contig_seq, seed_positions, colors)
     )
 
-    contains_seed = up_hit_seed or down_hit_seed
+    all_seed_hits = left_seed_hits | right_seed_hits
+    if seed_positions and all_seed_hits:
+        contains_seed = (
+            min(seed_positions) in all_seed_hits and max(seed_positions) in all_seed_hits
+        )
+    else:
+        contains_seed = False
 
     if len(up_colors) == 0 and len(down_colors) == 0:
         return None
@@ -557,19 +554,25 @@ def get_read_pair_rows(
         elif len(mates) == 1:
             # Single mate (other mate unmapped or mapped elsewhere)
             mate = mates[0]
-            color_array, start, end, ins, hit_seed, ins_pos = process_mate(
+            color_array, start, end, ins, seed_hits, ins_pos = process_mate(
                 mate, contig_seq, seed_positions, colors
             )
             if len(color_array) > 0:
-                # Adjust colors for non-seed-containing single mates
-                if not hit_seed:
+                if seed_positions and seed_hits:
+                    contains_seed = (
+                        min(seed_positions) in seed_hits
+                        and max(seed_positions) in seed_hits
+                    )
+                else:
+                    contains_seed = False
+                if not contains_seed:
                     color_array = adjust_colors_for_noseed(color_array, colors)
                 row = PileupReadPairRow(
                     colors=color_array,
                     start_coord=start,
                     ins_upstream=ins,
                     ins_downstream=0,
-                    contains_seed=hit_seed,
+                    contains_seed=contains_seed,
                     insertion_positions=ins_pos,
                 )
             else:
