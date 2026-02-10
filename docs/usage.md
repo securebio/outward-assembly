@@ -94,6 +94,8 @@ The `read_subset_k` argument to `outward_assembly` is a key parameter governing 
 
 In practice, start with a `read_subset_k` around 26. If you're failing to find good contigs, try a smaller `k`; if you're assembling lots of contigs that have nothing to do with your seed, try a larger `k`.
 
+Make sure you either have a reliable warm start sequence or that `read_subset_k` is no larger than your seed. (If `read_subset_k > len(seed)`, there are no k-mers in your seed to search for!)
+
 ### What hardware to run on
 
 Almost always, outward assembly runing time is dominated by the parallel BBDuk read searches: looking through a large haystack of reads to find the few needle-reads that contain kmers from our contigs. To make this search as fast as possible, you really want to be running on an EC2 instance in the same region as your data-containing S3 buckets. (This will also minimize data movement costs, since data S3 -> EC2 within region is free.)
