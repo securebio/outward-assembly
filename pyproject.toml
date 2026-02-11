@@ -24,6 +24,10 @@ dev = [
     "ruff",
     "ipython",
 ]
+pileup = [
+    "Pillow>=9.0.0",
+    "pysam>=0.22.0",
+]
 
 [tool.pytest.ini_options]
 markers = [
