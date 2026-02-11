@@ -62,10 +62,10 @@ assembly:
   out_dir: <Path to output directory>
   output_filename: <Filename of output contigs>
   read_subset_k: <Kmer size for BBDuk> (default is 27)
-  use_batch: <TRUE to use batch, False to use local> (default is FALSE)
+  use_batch: <true to use batch, false to use local> (default is false)
 
 decision: (optional)
-  automate: <TRUE to use automation, FALSE to run outward assembly once> (default is FALSE)
+  automate: <true to use automation, false to run outward assembly once> (default is false)
   strategy: <Name of strategy to use> (required if automate is TRUE)
   limits: (optional)
     compute_time: <Max compute time in hours> (default is 5 hours)
