@@ -681,12 +681,17 @@ def _prepare_query_seqs(
     Return the path to the query sequences for read filtering (which may just be the
     unmodified current contigs)."""
     if warm_start_path is not None:
-        with (
-            open(warm_start_path, "r") as infile,
-            open(workdir / WARM_START, "a") as outfile,
-        ):
-            outfile.write(infile.read())
-        query_seqs_path = workdir / WARM_START
+        # Combine seed (current_contigs) with warm start sequences
+        warm_start_combined = workdir / WARM_START
+        with open(workdir / CURRENT_CONTIGS, "r") as f:
+            seed_content = f.read()
+        with open(warm_start_path, "r") as f:
+            warm_content = f.read()
+        with open(warm_start_combined, "w") as outfile:
+            outfile.write(seed_content.rstrip("\n"))
+            outfile.write("\n")  # Exactly one newline between files
+            outfile.write(warm_content)
+        query_seqs_path = warm_start_combined
     else:
         query_seqs_path = workdir / CURRENT_CONTIGS
     if adapters_path is not None:

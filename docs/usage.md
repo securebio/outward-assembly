@@ -4,12 +4,13 @@ This document covers how to run outward assembly.
 
 Table of Contents:
 1. [Overview](#overview)
-2. [Running Outward Assembly](#running-outward-assembly)
+2. [Configuring read input](#configuring-read-input)
 3. [Working directory structure](#working-directory-structure)
-4. [Tips](#tips)
-5. [(Optional) AWS Batch for read search](#optional-aws-batch-for-read-search)
+4. [After outward assembly runs](#after-outward-assembly-runs)
+5. [Tips](#tips)
+6. [(Optional) AWS Batch for read search](#optional-aws-batch-for-read-search)
 
-> **Note:** For experimental features including automated/iterative mode, see [experimental features](experimental.md).
+> **Note:** For experimental features including pileup visualizations and automated/iterative mode, see [experimental features](experimental.md).
 
 ## Overview
 
@@ -18,7 +19,7 @@ The primary entrypoint to outward assembly is the Python function `outward_assem
 * A list of S3 paths of reads to assemble. Reads must be in [SIZ format](./algorithm_details.md#input-data);
 * Path for output contigs.
 
-Typically, you'll gather your inputs (seed sequences, warm start sequences, adapter sequences, etc.) into a directory along with a short Python script that calls `outward_assembly`. The docs contain a thoroughly-commented runnable [example](example-assembly-dir/script.py) of this workflow.
+Typically, you'll format your inputs (seed sequences, warm start sequences, adapter sequences, etc.) as fasta files and stick them into a directory along with a short Python script that calls `outward_assembly`. The docs contain a thoroughly-commented runnable [example](example-assembly-dir/script.py) of this workflow.
 
 By default, the entire pipeline runs on your local machine. This works well for most use cases; if you need more resources, try scaling up your machine (e.g. pick an EC2 instance with more cores and memory). For very large datasets, there's an option to [run the read search step on AWS Batch](#optional-aws-batch-for-read-search), trading startup time for potentially very wide parallelization.
 
@@ -35,31 +36,6 @@ prefixes = [
 paths = [p for prefix in prefixes for p in s3_files_with_prefix("my-bucket", prefix)]
 ```
 
-## Working directory structure
-```
-.
-├── current_contigs.fasta # working set of contigs. Used for read filtering when adapter trimming is disabled.
-├── input_s3_paths.txt # list of input paths, copied for debugging
-├── log.txt # collects some command output; not well structured
-├── megahit_out_iter<i>-<j> # iteration i, subiteration j
-│   ├── chose_this_subiter # empty file created if this subiter's contigs were chosen
-│   ├── contigs_filtered.fasta # final.contigs.fa filtered via overlap graph logic
-│   ├── final.contigs.fa # megahit output of this subiter's assembly
-│   └── # other megahit outputs
-├── original_seed.fasta
-├── query_kmers.fasta # used for filtering all input reads, only appears if adapter trimming is enabled
-├── reads # reads_* from each iter copied here for debugging
-│   └── iter_<i> 
-├── reads_1.fastq # reads used this iteration, will be copied to reads/
-├── reads_2.fastq
-├── reads_ff_1.fastq # _ff reads only appear if frequency filtering is enabled
-├── reads_ff_2.fastq
-├── reads_untrimmed_1.fastq # _untrimmed reads only appear if adapter trimming is enabled
-└── reads_untrimmed_2.fastq
-└── config.yaml # the configuration file used to run the pipeline
-```
-Note that kmer counting logic occurs in a separate `kmers` directory which is created by `high_freq_kmers_split_files`.
-
 ## After outward assembly runs
 
 You can see final output in the final output file you specified when calling `outward_assembly`. However, it's often useful to look around in the working directory to see how the algorithm progressed. A few things to check:
@@ -67,6 +43,8 @@ You can see final output in the final output file you specified when calling `ou
 * Which subiteration was chosen in each iteration? Look for empty `chose_this_subiter` sentinel files, which will appear in one sub-iteration per iteration.
 	* It's common for the first few iterations to be able to use subiteration `-1`, but later iterations to need subiter `-2` or `-3`; this can correlate with a decline in contig quality. E.g. if you ran 10 iterations total, the first 6 of which used subiter `i-1`, compare the iteration 6 and iteration 10 (final) outputs.
 * How many reads were selected in each iteration? Did any iterations pull in lots of high frequency kmer reads? Checking file sizes in the `reads/` dir is helpful.
+
+See [Examining a working directory](docs/examining-work-dir.md) for a walkthrough of how to read the working directory of a completed outward assembly run.
 
 ## Tips
 
@@ -82,15 +60,31 @@ There's no error tolerance in the latter filtering step: contigs must contain yo
 3. No contig output in the first iteration exactly contains the seed.
 4. Therefore, the algorithm did not progress in the first iteration and terminates early.
 
-Your seed should be the minimal sequence such that you're interested in a contig if and only if the contig contains the seed. In practice, 20-50bp seems to work well.
+Your seed should be the minimal sequence such that you're interested in a contig if and only if the contig contains the seed. In practice, 24-50bp seems to work well.
 
-If you're trying to accelerate the outward assembly pipeline by providing a longer sequence with more kmers, use the `warm_start_path` argument rather than elongating your seed; all kmers found in the warm start sequences are used in the first iteration read search. For example, suppose you have multiple reads that attest to a chimeric junction, but the reads disagree on bases near read ends or away from the jointly-attested junction. Then pick ~24bp around the junction as your seed, and include all the relevant reads in your warm start fasta.
+### Multiple seeds
+
+Outward assembly supports running with multiple seed sequences: just stick multiple sequences in your seed sequence fasta. The algorithm and logic are essentially unchanged from the one-seed case, except that at the end of each iteration, we retain any contig which fully contains _any_ of the seed sequences.
+
+You might wish to run with multiple seeds if:
+* You have many seed sequences that might come from the same genome, and you hope outward assembly will join them into a coherent contig.
+* You're unsure which seed is correct (e.g. due to reads disagreeing about specific bases), so you assemble all plausible seeds.
+* You've identified many seed seeds that should be assembled using the same underlying read data, and you want to avoid the computational cost of many independent outward assembly runs.
+	* Note that running outward assembly with multiple seeds is not identical to running multiple single-seed outward assemblies. For example, including seed A might cause the read search step to pull in a specific read that affects the assembly of contigs containing seed B.
+
+### Warm start
+
+It's common to have sequences you think will be part of your final contigs -- perhaps up to some small errors -- but are not themselves the seed sequence. For example, your seed sequence might be a certain kmer of interest observed in several reads; the reads are likely to appear in the final contig, but aren't themselves the essential seed.
+
+In these cases, you can use a _warm start_: point `warm_start_path` at these sequence(s) in fasta format, and all the kmers contained in these sequences will be used in the first iteration read search. This is different from extending the seed, because these seed sequences aren't used for contig filtering, so it's okay for them to contain errors. For example, suppose you have multiple reads that attest to a chimeric junction, but the reads disagree on bases near read ends or away from the jointly-attested junction. Then pick ~28bp around the junction as your seed, and include all the relevant reads in your warm start fasta.
+
+There are no specific requirements for the warm start sequences: they can contain the seed, be adjacent to the seed, etc.; they're just a basket of kmers used to help find more reads in the first iteration read search, and they're only used in the first iteration.
 
 ### Choosing a good `read_subset_k`
 
 The `read_subset_k` argument to `outward_assembly` is a key parameter governing the pipeline's behavior. A read in the corpus of input reads is "pulled in" for assembly if and only if it has an exact kmer match to the current contigs (or warm start, in iteration 1). Thus `read_subset_k` governs a sensitivity-specificity tradeoff:
 * small `k` makes outward assembly more tolerant of sequencing errors and helps detect reads which overlap a contig by only a few bases.
-* large `k` makes outward assembly less likely to pull in reads that aren't actually related to your seed sequence or unknown target genome. (This can be quite fatal for the algorithm, e.g. if you pick a small enough `k` that your seed shares a kmer with something else super common in your sample.)
+* large `k` makes outward assembly less likely to pull in reads that aren't actually related to your seed sequence or unknown target genome.
 
 In practice, start with a `read_subset_k` around 26. If you're failing to find good contigs, try a smaller `k`; if you're assembling lots of contigs that have nothing to do with your seed, try a larger `k`.
 
