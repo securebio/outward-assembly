@@ -45,7 +45,7 @@ megahit_out_iter3-3
 ```
 Here we see outward assembly made it through 3 iterations (with subiterations `-1` through `-3` each). The example script has `max_iters=3`, so we didn't terminate early due to convergence or crash.
 
-Then check to see if any subiteration in iteration 3 has a `chose_this_subiter` flag file. If yes, that means the contigs were extended in the last iteration, and we stopped because of `max_iters`. If no, that means the contigs weren't extended in the last iteration, and we stopped because of convergence.
+Then check to see if any subiteration in iteration 3 has a `chose_this_subiter` flag file. If yes, that means the contigs were extended in the last iteration (i.e. iteration 3 produced longer seed containing contigs than iteration 2), and we stopped because of `max_iters`. If no, that means the contigs weren't extended in the last iteration, and we stopped because of convergence.
 
 ```
 $ ls megahit_out_iter3-*
@@ -57,8 +57,8 @@ checkpoints.txt  contigs_filtered.fasta  done  final.contigs.fa  intermediate_co
 
 megahit_out_iter3-3:
 checkpoints.txt  contigs_filtered.fasta  done  final.contigs.fa  intermediate_contigs  log  options.json
-Here we see that no subiteration was chosen in iteration 3, so we didn't extend contigs after iteration 2. The algorithm would have exited here even if we didn't have `max_iters=3`.
 ```
+Here we see that no subiteration was chosen in iteration 3, so we didn't extend contigs after iteration 2. The algorithm would have exited here even if we didn't have `max_iters=3`.
 
 ## How many reads did we find?
 
@@ -135,7 +135,12 @@ ATTTTGCACATTAACAACTGTCGAGTACCCAGCTCCTTCACTGTTCTCTAACGGATCAGG
 AATATAATAAGATCTACTGCGCCCCAGCCGCAGAACGATAAGGGCTGCATTTGCCTACCT
 CTACAGCCATGTCGTACGGGAATCCAGCCTGCGGGGGGGG
 ```
-Notice how the contig shrinks from 1040nt to 1000nt; the terminal `CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAG` is lost. Okay, why did this happen? Let's look at MEGAHIT's output in iteration 3-1, before any contig filtering:
+Notice how the contig shrinks from 1040nt to 1000nt; the terminal `CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAG` is lost.
+
+> [!NOTE]
+> This example uses a [synthetic genome](example-assembly-dir/ground_truth_genome_for_demo_purposes.fasta) with a repetitive region. The iteration 3 contig is actually correct, and the iteration 2 contig ends in a hairpin artifact: `[last 40nt of region][reverse complement of last 40nt]`. Many real-world assemblies will be easier to parse.
+
+Okay, why did the seed-containing contig shorten from iteration 2 to iteration 3? Let's look at MEGAHIT's output in iteration 3-1, before any contig filtering:
 ```
 $ cat megahit_out_iter3-1/final.contigs.fa
 >k141_4 flag=0 multi=16.6643 len=421
@@ -149,4 +154,6 @@ CTACAGCTATCACGTGCGCACGACCCTAACATCGTCGGCAGCTTATACTTATGGATCACCATCCGATGCGACACTCCCAG
 >k141_3 flag=0 multi=108.0000 len=1000
 CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAGAGGTAGGCAAATGCAGCCCTTATCGTTCTGCGGCTGGGGCGCAGTAGATCTTATTATATTCCTGATCCGTTAGAGAACAGTGAAGGAGCTGGGTACTCGACAGTTGTTAATGTGCAAAATAACTGGTTTGCCGTCTAGTCGAGCCCCCAGCTAATATAGAGGCCTCTTGGACCTCCGACTGACATAGCCGGATTCCGGTGAAGGCGTGTTGTGGTGCTGCGGTTTTGTGGTAGGAGAAGCTACGCCAAGGGGCGCACACTTTCCACCTACGAGGCGCATAAAGTCGGGATACCTTGTCCCTGAGTGTCTATCACAAGGATATGCATCCGGTCCAGGCTTGATCTAAGGATTACTCACTACCGGTGCTCAAAGTCGACAACGGGAGCTTTGTTTATGTCGCAGTACCCTATCCGATCGACTGTTTCGATTGGAACCTTTTAGGCCCGTAACAATGCGTCGAAGAGGATAGGTACTAAGCTAGCATTTGAGTTGGCAACGACAGAGTGCGATCAGCTCGATGAACAGATTTTTGCATACCGAGACGGGCAATTAATTCTGGGTGCACCAAAACATGCGACGCTACCTAATGGAATCAGACTAGTAACACAACTCTAAGCTGAGTGTCGATTACACTGACGGGGCACTAATAAGTGCGCTGTCTATTAAGATGTATTGGTGACTCCTTCCTCTCAATACGGAGTCGTCAGAGGGAGTCGTTGGAGCAGGTCGCATCGGGCATCTCCTAAAGAGACAGGCGTAGTCCAGACGTCGCCGTGGGAGTAAAACTGCTGGCATGGGGCGCGTCCATGTCTTGCTTAGCTACAGCTATCACGTGCGCACGACCCTAACATCGTCGGCAGCTTATACTTATGGATCACCATCCGATGCGACACTCCCAGTCCCGGGCCTCAACAAATTCGTGTTCCGTCGACAGATCTTTTTTCATTACCAACCCCCCCC
 ```
-Notice how that the `CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAG` "missing" from our iteration 3 contig is found in MEGAHIT output contig `k141_4`! With the extra reads found in iteration 3, MEGAHIT's assembly took a different path through the `CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAG` assembly graph node than we had in iteration 2.
+Notice:
+* Contig `k141_3` is the reverse complement of `k141_3` in `contigs_filtered.fasta`. When filtering contigs, we try to orient them in the forward-seed direction.
+* The `CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAG` "missing" from our the end of iteration 3 contig is found in MEGAHIT output contig `k141_4`! With the extra reads found in iteration 3, MEGAHIT's assembly took a different path through the `CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAG` assembly graph node than we had in iteration 2.

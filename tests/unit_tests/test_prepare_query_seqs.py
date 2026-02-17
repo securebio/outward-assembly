@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from outward_assembly.pipeline_steps import _prepare_query_seqs
