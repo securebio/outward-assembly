@@ -44,7 +44,7 @@ You can see final output in the final output file you specified when calling `ou
 	* It's common for the first few iterations to be able to use subiteration `-1`, but later iterations to need subiter `-2` or `-3`; this can correlate with a decline in contig quality. E.g. if you ran 10 iterations total, the first 6 of which used subiter `i-1`, compare the iteration 6 and iteration 10 (final) outputs.
 * How many reads were selected in each iteration? Did any iterations pull in lots of high frequency kmer reads? Checking file sizes in the `reads/` dir is helpful.
 
-See [Examining a working directory](docs/examining-work-dir.md) for a walkthrough of how to read the working directory of a completed outward assembly run.
+See [Examining a working directory](examining-work-dir.md) for a walkthrough of how to read the working directory of a completed outward assembly run.
 
 ## Tips
 
@@ -69,7 +69,7 @@ Outward assembly supports running with multiple seed sequences: just stick multi
 You might wish to run with multiple seeds if:
 * You have many seed sequences that might come from the same genome, and you hope outward assembly will join them into a coherent contig.
 * You're unsure which seed is correct (e.g. due to reads disagreeing about specific bases), so you assemble all plausible seeds.
-* You've identified many seed seeds that should be assembled using the same underlying read data, and you want to avoid the computational cost of many independent outward assembly runs.
+* You've identified many seeds that should be assembled using the same underlying read data, and you want to avoid the computational cost of many independent outward assembly runs.
 	* Note that running outward assembly with multiple seeds is not identical to running multiple single-seed outward assemblies. For example, including seed A might cause the read search step to pull in a specific read that affects the assembly of contigs containing seed B.
 
 ### Warm start
@@ -92,7 +92,7 @@ Make sure you either have a reliable warm start sequence or that `read_subset_k`
 
 ### What hardware to run on
 
-Almost always, outward assembly runing time is dominated by the parallel BBDuk read searches: looking through a large haystack of reads to find the few needle-reads that contain kmers from our contigs. To make this search as fast as possible, you really want to be running on an EC2 instance in the same region as your data-containing S3 buckets. (This will also minimize data movement costs, since data S3 -> EC2 within region is free.)
+Almost always, outward assembly running time is dominated by the parallel BBDuk read searches: looking through a large haystack of reads to find the few needle-reads that contain kmers from our contigs. To make this search as fast as possible, you really want to be running on an EC2 instance in the same region as your data-containing S3 buckets. (This will also minimize data movement costs, since data S3 -> EC2 within region is free.)
 
 The read search is compute and network bottlenecked, so consider compute-optimized instances like the c7a/c8a families. Outward assembly will run one BBDuk search process per 4 vCPU cores. *Very* roughly, streaming, decompressing, and searching a 1 million read pair SIZ chunk takes 4 cores about 15 seconds, so with a `n` core machine you can search `n`-million read pairs per minute.
 

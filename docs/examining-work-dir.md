@@ -21,7 +21,7 @@ Each invocation of outward assembly creates a working directory which records th
 ├── reads_ff_1.fastq # _ff reads only appear if frequency filtering is enabled
 ├── reads_ff_2.fastq
 ├── reads_untrimmed_1.fastq # _untrimmed reads only appear if adapter trimming is enabled
-└── reads_untrimmed_2.fastq
+├── reads_untrimmed_2.fastq
 └── config.yaml # the configuration file used to run the pipeline
 ```
 (Note that kmer counting logic occurs in a separate `kmers` directory which is created by `high_freq_kmers_split_files`.)

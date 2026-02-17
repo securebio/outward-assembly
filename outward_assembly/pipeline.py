@@ -318,7 +318,7 @@ def outward_assembly(
     # Let's assemble
     try:
         logger.info(
-            f"Outward assembly:\n  Seed path: {seed_path}\n  workdir: {workdir}\n  output path: {output_path}"
+            f"Outward assembly:\n  seed path: {seed_path}\n  workdir: {workdir}\n  output path: {output_path}"
         )
         _record_inputs(workdir, seed_path, s3_paths)
 
