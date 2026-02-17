@@ -197,4 +197,4 @@ uv run automate_assembly.py --input_config <PATH TO YAML FILE>
 
 ### Working Directory Note
 
-When running in *automated* mode, a new working directory is created each time the pipeline repeats. See [usage.md](usage.md#working-directory-structure) for the standard working directory structure.
+When running in *automated* mode, a new working directory is created each time the pipeline repeats.

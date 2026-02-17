@@ -93,7 +93,7 @@ There are several reasons outward assembly fails to extend the previous iteratio
 * MEGAHIT built the same contigs as it did last iteration;
 * MEGAHIT built shorter contigs this iteration than last.
 
-It's often helpful to examine the `megahit_out_iter<i>_<j>/final.contigs.fa` files to see MEGAHIT output per sub-iteration. In the case of the docs example script that didn't extend the contigs in the third iteration, we can first confirm that the filtered contigs didn't elongate from iteration 2 to iteration 3:
+It's often helpful to examine the `megahit_out_iter<i>-<j>/final.contigs.fa` files to see MEGAHIT output per sub-iteration. In the case of the docs example script that didn't extend the contigs in the third iteration, we can first confirm that the filtered contigs didn't elongate from iteration 2 to iteration 3:
 ```
 $ cat megahit_out_iter2-1/contigs_filtered.fasta
 >k141_0 flag=1 multi=90.0000 len=1040
@@ -156,4 +156,4 @@ CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAGAGGTAGGCAAATGCAGCCCTTATCGTTCTGCGGCTGGGGC
 ```
 Notice:
 * Contig `k141_3` is the reverse complement of `k141_3` in `contigs_filtered.fasta`. When filtering contigs, we try to orient them in the forward-seed direction.
-* The `CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAG` "missing" from our the end of iteration 3 contig is found in MEGAHIT output contig `k141_4`! With the extra reads found in iteration 3, MEGAHIT's assembly took a different path through the `CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAG` assembly graph node than we had in iteration 2.
+* The `CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAG` "missing" from the end of our iteration 3 contig is found in MEGAHIT output contig `k141_4`! With the extra reads found in iteration 3, MEGAHIT's assembly took a different path through the `CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAG` assembly graph node than we had in iteration 2.

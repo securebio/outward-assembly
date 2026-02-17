@@ -5,7 +5,6 @@ This document covers how to run outward assembly.
 Table of Contents:
 1. [Overview](#overview)
 2. [Configuring read input](#configuring-read-input)
-3. [Working directory structure](#working-directory-structure)
 4. [After outward assembly runs](#after-outward-assembly-runs)
 5. [Tips](#tips)
 6. [(Optional) AWS Batch for read search](#optional-aws-batch-for-read-search)
@@ -55,7 +54,7 @@ The seed serves two purposes in outward assembly:
 2. It's used to filter contigs at the end of each iteration.
 
 There's no error tolerance in the latter filtering step: contigs must contain your seed exactly (up to reverse complementing). Therefore your seed really must be error-free. If your seed has an error (relative to the likely genome that generated the reads you're interested in), then the following sad sequence occurs:
-1. Outward assemble uses the seed to find read pairs containing seed kmers.
+1. Outward assembly uses the seed to find read pairs containing seed kmers.
 2. These read pairs are assembled in the first iteration.
 3. No contig output in the first iteration exactly contains the seed.
 4. Therefore, the algorithm did not progress in the first iteration and terminates early.
@@ -94,7 +93,7 @@ Make sure you either have a reliable warm start sequence or that `read_subset_k`
 
 Almost always, outward assembly running time is dominated by the parallel BBDuk read searches: looking through a large haystack of reads to find the few needle-reads that contain kmers from our contigs. To make this search as fast as possible, you really want to be running on an EC2 instance in the same region as your data-containing S3 buckets. (This will also minimize data movement costs, since data S3 -> EC2 within region is free.)
 
-The read search is compute and network bottlenecked, so consider compute-optimized instances like the c7a/c8a families. Outward assembly will run one BBDuk search process per 4 vCPU cores. *Very* roughly, streaming, decompressing, and searching a 1 million read pair SIZ chunk takes 4 cores about 15 seconds, so with a `n` core machine you can search `n`-million read pairs per minute.
+The read search is compute and network bottlenecked, so consider compute-optimized instances like the c7a/c8a families. Outward assembly will run one BBDuk search process per 4 vCPU cores. *Very* roughly, streaming, decompressing, and searching a 1 million read pair SIZ chunk takes 4 cores about 15 seconds, so with a `n`-core machine you can search `n` million read pairs per minute.
 
 ## (Optional) AWS Batch for read search
 
