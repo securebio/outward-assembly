@@ -1,8 +1,8 @@
 import os
 import shutil
 import subprocess
-import sys
 import textwrap
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional
@@ -110,13 +110,6 @@ def _assemble_contigs(workdir: PathLike, iter: int, freq_filter: bool) -> None:
     ]
     # fmt: on
     cmds.append(cmd)
-
-    # Workaround for megahit multi-threading bug on macOS (segfaults with threads > 1)
-    # See: https://github.com/voutcn/megahit/issues/385
-    # Potential fix: https://github.com/voutcn/megahit/pull/387
-    if sys.platform == "darwin":
-        for cmd in cmds:
-            cmd.extend(["--num-cpu-threads", "1"])
 
     log_path = workdir / LOG_FILE
     for cmd in cmds:
@@ -323,7 +316,7 @@ def _subset_split_files(
     n_threads: int = 3,
     ordered: bool = True,
 ) -> None:
-    """Determine whether to use batch or local BBDuk to subset reads from split files.
+    """Determine whether to use batch or local Nucleaze to subset reads from split files.
 
     Args:
         s3_records: Processed S3 paths of read files
@@ -333,8 +326,8 @@ def _subset_split_files(
         use_batch: Whether to use batch mode
         batch_workdir: S3 path to batch work directory; Argument is ignored if use_batch is False
         batch_queue: Batch queue name; Argument is ignored if use_batch is False
-        num_parallel: Number of parallel BBDuk processes; Argument is ignored if use_batch is True
-        n_threads: Threads per BBDuk process; Argument is ignored if use_batch is True
+        num_parallel: Number of parallel Nucleaze processes; Argument is ignored if use_batch is True
+        n_threads: Threads per Nucleaze process; Argument is ignored if use_batch is True
         ordered: Force output order to match input read order; Argument is ignored if use_batch is True
     """
     if use_batch:
@@ -392,12 +385,9 @@ def _subset_split_files_local(
     if num_parallel is None:
         num_parallel = max(1, cpu_count() // 4)
 
-    # Find nucleaze binary (needed for xargs/sh which may not inherit PATH)
     nucleaze_bin = shutil.which("nucleaze")
     if nucleaze_bin is None:
-        raise RuntimeError(
-            "nucleaze not found in PATH. Install via: cargo install --path /path/to/nucleaze"
-        )
+        raise RuntimeError("nucleaze not found in PATH")
 
     # Build Nucleaze commands - equivalent to BBDuk with:
     #   rcomp=t -> --canonical (use canonical k-mer form)
@@ -419,9 +409,6 @@ def _subset_split_files_local(
         f"--threads {n_threads}"
         for rec in s3_records
     ]
-
-    # Run commands in parallel using concurrent.futures (avoids xargs command length limits)
-    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def run_cmd(cmd: str) -> subprocess.CompletedProcess:
         return subprocess.run(cmd, shell=True, check=True, capture_output=True)
@@ -500,9 +487,9 @@ def _subset_split_files_batch(
     batch_queue: str,
     tower_token: str,
 ) -> None:
-    """Use parallel BBDuk by running Nextflow (which uses AWS Batch) to subset reads from split files sharing kmers with ref. By
+    """Use Nextflow (AWS Batch) to subset reads from split files sharing kmers with ref. By
     default, the order of filtered reads will match the order of inputs, which makes
-    the overall assembly algorithm closer to determinsitic.
+    the overall assembly algorithm closer to deterministic.
 
     Args:
         s3_records: Processed S3 paths of read files

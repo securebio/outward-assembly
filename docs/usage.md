@@ -166,7 +166,7 @@ assembly:
   work_dir: <Path to work directory>
   out_dir: <Path to output directory>
   output_filename: <Filename of output contigs>
-  read_subset_k: <Kmer size for BBDuk> (default is 27)
+  read_subset_k: <Kmer size for read filtering> (default is 27)
   use_batch: <TRUE to use batch, False to use local> (default is FALSE)
 
 decision: (optional)

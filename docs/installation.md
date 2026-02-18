@@ -57,7 +57,7 @@ Then run Python commands via uv (while the tools environment is activated):
 uv run your_script.py
 ```
 
-**Note:** You need both uv (for Python packages) and mamba/conda (for bioinformatics tools like MEGAHIT, BBMap, etc.).
+**Note:** You need both uv (for Python packages) and mamba/conda (for bioinformatics tools like MEGAHIT, KMC, etc.), plus Nucleaze installed via cargo.
 
 ## (Optional) Batch profile
 

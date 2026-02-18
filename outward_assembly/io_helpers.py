@@ -23,7 +23,7 @@ def _get_s3_stream_tool() -> str:
     if shutil.which("aws"):
         return "aws"
     raise RuntimeError(
-        "No S3 streaming tool found"
+        "No S3 streaming tool found. "
         "Please install s5cmd (recommended): https://github.com/peak/s5cmd "
         "or aws cli: https://aws.amazon.com/cli/"
     )

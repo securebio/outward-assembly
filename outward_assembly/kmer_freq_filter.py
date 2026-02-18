@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
 from typing import Optional
@@ -242,9 +243,6 @@ def frequency_filter_reads(
         f"rm {out_dir / rec.filename}_tmp_out.fq"
         for rec, p_out in zip(s3_records, out_paths)
     ]
-
-    # Run commands in parallel using concurrent.futures (avoids xargs command length limits)
-    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def run_cmd(cmd: str) -> subprocess.CompletedProcess:
         return subprocess.run(cmd, shell=True, check=True, capture_output=True)

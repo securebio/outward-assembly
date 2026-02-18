@@ -11,7 +11,7 @@ The vast majority of outward assembly computational time is spent scanning reads
 
 Outward assembly only accepts input reads that are (a) stored in S3 (b) in SIZ format: **s**plit, **i**nterleaved, **z**std-compressed:
 * For better parallelism, we split input reads into chunks of 1 million read pairs each.
-* Read pairs are interleaved, rather than being stored in separate forward (`_1`) and reverse (`_2`) files. This is handy because BBDuk only accepts streaming inputs via stdin, so paired end reads must be interleaved and storing in interleaved format avoids interleaving via subprocess substitution.
+* Read pairs are interleaved, rather than being stored in separate forward (`_1`) and reverse (`_2`) files. This is handy for streaming decompression and piping to the k-mer filtering tool.
 * [zstd](https://github.com/facebook/zstd) is a lossless compression algorithm, similar in both concept and usage to gzip. Zstd has better compression ratio and decompression speed that gzip/pigz and is supported by Meta. Since we can stream decompress for outward assembly, we're not limited to the compression formats our tools support natively and can choose a more modern and efficient format.
 
 ## Overlapping contigs
