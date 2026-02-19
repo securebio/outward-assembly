@@ -37,7 +37,7 @@ class InnerIterationMetrics(TypedDict):
     """
     Store metrics for each iteration (referred to formally as an "inner iteration") of the assembly process.
 
-    The read_pair_counts description will vary based on the user's input. By default, it is the number of read pairs that are extracted from BBDuk. In the situation that the user passed in an adapter path or high frequency kmers, this is the number of reads that were adapter trimmed or frequency filtered, respectively.
+    The read_pair_counts description will vary based on the user's input. By default, it is the number of read pairs extracted by k-mer filtering. In the situation that the user passed in an adapter path or high frequency kmers, this is the number of reads that were adapter trimmed or frequency filtered, respectively.
     """
 
     iteration: int
@@ -249,8 +249,8 @@ def outward_assembly(
 ) -> AssemblyMetrics:
     """Assembly algorithm: iterative outward assembly from a seed.
 
-    Uses BBDuk for read filtering and Megahit for assembly. Can optionally filter out
-    reads containing high frequency kmers and/or adapturs during each iteration.
+    Uses Nucleaze for read filtering and Megahit for assembly. Can optionally filter out
+    reads containing high frequency kmers and/or adapters during each iteration.
 
     Args:
         s3_paths: List of s3 paths to input read files

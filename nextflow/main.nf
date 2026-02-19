@@ -1,12 +1,12 @@
 nextflow.preview.output = true
 
-// BBDUK filters the reads for those containing k-mers of the target sequence
-// Input: Paired-end reads (zstd compressed and interleaved), target sequence/k-mers of target seqeunce, k used for BBDuk
+// NUCLEAZE filters the reads for those containing k-mers of the target sequence
+// Input: Paired-end reads (zstd compressed and interleaved), target sequence/k-mers of target sequence, k used for Nucleaze
 //    First input argument is a tuple (list of sample_divs, list of paths)
 // Output: Filtered forward and reverse reads that match the reference
-process BBDUK {
+process NUCLEAZE {
   label "medium"
-  label "BBTools"
+  label "Nucleaze"
   input:
     tuple val(sample_divs), path(reads_files)
     path(ref_fasta_path)
@@ -19,18 +19,31 @@ process BBDUK {
     # Convert space-separated lists to arrays
     IFS=' ' read -ra samples <<< "${sample_divs.join(' ')}"
     IFS=' ' read -ra files <<< "${reads_files.join(' ')}"
-    
+
     # Process each file with its corresponding sample_div
     for i in "\${!samples[@]}"; do
       sample_div="\${samples[\$i]}"
       reads_file="\${files[\$i]}"
-      
-      # Define input/output
-      io="in=stdin.fastq ref=${ref_fasta_path} outm=\${sample_div}_1.fastq outm2=\${sample_div}_2.fastq"
-      # Define parameters
-      par="ordered=t rcomp=t minkmerhits=1 mm=f interleaved=t k=${k} t=${task.cpus} -Xmx${task.memory.toGiga()}g"
-      # Execute
-      zstdcat "\${reads_file}" | bbduk.sh \${io} \${par}
+
+      # Run nucleaze with equivalent parameters to former BBDuk usage:
+      #   rcomp=t -> --canonical
+      #   minkmerhits=1 -> --minhits 1
+      #   mm=f -> (default, exact matching)
+      #   interleaved=t -> --interinput
+      #   ordered=t -> --order
+      zstdcat "\${reads_file}" | nucleaze \\
+        --in - \\
+        --ref ${ref_fasta_path} \\
+        --outm "\${sample_div}_1.fastq" \\
+        --outm2 "\${sample_div}_2.fastq" \\
+        --outu /dev/null \\
+        --outu2 /dev/null \\
+        --k ${k} \\
+        --canonical \\
+        --minhits 1 \\
+        --interinput \\
+        --order \\
+        --threads ${task.cpus}
     done
     """
 }
@@ -49,11 +62,11 @@ process CONCAT_READS{
   script:
     """
     # Check that forward and reverse read counts match
-    [ \$(echo ${fwd_reads} | wc -w) -eq \$(echo ${rev_reads} | wc -w) ] || { 
+    [ \$(echo ${fwd_reads} | wc -w) -eq \$(echo ${rev_reads} | wc -w) ] || {
       echo "Error: Unequal number of forward (\$(echo ${fwd_reads} | wc -w)) and reverse (\$(echo ${rev_reads} | wc -w)) read files"
       exit 1
     }
-    
+
     # Process forward reads
     for fwd in ${fwd_reads}; do
       filename=\$(basename "\$fwd" _1.fastq)
@@ -74,7 +87,7 @@ workflow {
     reads = Channel.fromPath(params.s3_files)
       .splitCsv(header: false, sep: "\t")
       .map { row -> tuple(row[0], row[1]) }
-    
+
     // Batch inputs
     batch_size = params.batch_size ?: 10
     batched_reads = reads
@@ -84,18 +97,18 @@ workflow {
         def files = batch.collect { file(it[1]) }
         tuple(sample_divs, files)
       }
-    
+
     // Process batches
-    bbduk_results = BBDUK(batched_reads, params.ref_fasta_path, params.kmer)
-    
+    nucleaze_results = NUCLEAZE(batched_reads, params.ref_fasta_path, params.kmer)
+
     // Collect and filter outputs, removing empty (no-hit) files
-    fwd_reads = bbduk_results.fwd_reads
+    fwd_reads = nucleaze_results.fwd_reads
       .flatten()
       .filter { it.size() > 0 }
-      .toSortedList { a, b -> 
+      .toSortedList { a, b ->
         a.name.tokenize('_')[0] <=> b.name.tokenize('_')[0]
       }
-    rev_reads = bbduk_results.rev_reads
+    rev_reads = nucleaze_results.rev_reads
       .flatten()
       .filter { it.size() > 0 }
       .toSortedList { a, b ->

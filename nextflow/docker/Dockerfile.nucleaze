@@ -1,0 +1,33 @@
+# Multi-stage build for Nucleaze container
+# Stage 1: Build nucleaze from source
+# Requires Rust 1.88+ for sysinfo dependency
+FROM rust:latest AS builder
+
+WORKDIR /build
+
+# Install git to clone the repo
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git && \
+    rm -rf /var/lib/apt/lists/*
+
+# Clone and build nucleaze
+# TODO: Pin to a specific version/tag once available
+RUN git clone https://github.com/jackdougle/nucleaze.git . && \
+    cargo build --release
+
+# Stage 2: Runtime image
+FROM ubuntu:22.04
+
+# Install zstd (for zstdcat) - nucleaze has no JVM dependency
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends zstd && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy the nucleaze binary from builder
+COPY --from=builder /build/target/release/nucleaze /usr/local/bin/nucleaze
+
+# Verify nucleaze works
+RUN nucleaze --help > /dev/null
+
+# Set the working directory to /mnt
+WORKDIR /mnt
