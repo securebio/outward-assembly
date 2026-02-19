@@ -44,18 +44,28 @@ def _run_nucleaze(
 
     cmd = [
         nucleaze_bin,
-        "--in", str(reads_1),
-        "--in2", str(reads_2),
-        "--outu", str(out_1),
-        "--outu2", str(out_2),
-        "--outm", "/dev/null",
-        "--outm2", "/dev/null",
-        "--ref", str(ref_path),
-        "--k", str(k),
+        "--in",
+        str(reads_1),
+        "--in2",
+        str(reads_2),
+        "--outu",
+        str(out_1),
+        "--outu2",
+        str(out_2),
+        "--outm",
+        "/dev/null",
+        "--outm2",
+        "/dev/null",
+        "--ref",
+        str(ref_path),
+        "--k",
+        str(k),
         "--canonical",
-        "--minhits", "1",
+        "--minhits",
+        "1",
         "--order",
-        "--threads", "4",
+        "--threads",
+        "4",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
@@ -142,10 +152,14 @@ def test_nucleaze_bbduk_output_equivalence(temp_workdir):
     # Verify read counts match
     nucleaze_reads = _count_lines(nucleaze_out_1) // 4
     bbduk_reads = _count_lines(bbduk_out_1) // 4
-    assert nucleaze_reads == bbduk_reads, (
-        f"Read count mismatch: nucleaze={nucleaze_reads}, bbduk={bbduk_reads}"
-    )
+    assert (
+        nucleaze_reads == bbduk_reads
+    ), f"Read count mismatch: nucleaze={nucleaze_reads}, bbduk={bbduk_reads}"
 
     # Verify output hashes match
-    assert _hash_file(nucleaze_out_1) == _hash_file(bbduk_out_1), "Output mismatch for read 1"
-    assert _hash_file(nucleaze_out_2) == _hash_file(bbduk_out_2), "Output mismatch for read 2"
+    assert _hash_file(nucleaze_out_1) == _hash_file(
+        bbduk_out_1
+    ), "Output mismatch for read 1"
+    assert _hash_file(nucleaze_out_2) == _hash_file(
+        bbduk_out_2
+    ), "Output mismatch for read 2"

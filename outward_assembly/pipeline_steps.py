@@ -452,8 +452,7 @@ def _create_nextflow_config(
     """
     nextflow_dir = Path(__file__).resolve().parent.parent / "nextflow"
 
-    config_content = textwrap.dedent(
-        f"""
+    config_content = textwrap.dedent(f"""
         // Dynamic configuration for this run
         params {{
             base_dir = "{batch_workdir}"
@@ -468,8 +467,7 @@ def _create_nextflow_config(
         
         // Include all static configuration files from the OA repo
         includeConfig "{nextflow_dir}/static_configs.config"
-        """
-    ).strip()
+        """).strip()
 
     config_path = workdir / "run_config.nf"
     with open(config_path, "w") as f:
