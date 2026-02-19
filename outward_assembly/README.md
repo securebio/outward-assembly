@@ -21,7 +21,7 @@ We use the [pytest](https://docs.pytest.org/en/stable/) testing framework. Tests
 
 You can run the full test suite with `pytest` in the base repo dir, or `pytest -s` to see the real time logs. The full suite includes integration and end-to-end tests, and can be quite slow. You may find it useful to run just the tests with certain markers, e.g. `pytest -m unit` to run just the unit tests.
 
-Some integration and end-to-end tests run in both local and Batch mode, hence you'll have to have gone through the [Batch installation process](../docs/installation.md#optional-batch-profile) to run the full test suite. 
+Some integration and end-to-end tests run in both local and Batch mode, hence you'll have to have gone through the [AWS Batch setup](../docs/installation.md#optional-aws-batch-for-read-search) to run the full test suite. 
 
 To run the tests that use Batch and AWS, copy `.env.example`  to `.env` and fill in your compute resources and credentials. (Alternatively, you can directly export the variables defined in `.env` as environment variables.)
 

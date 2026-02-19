@@ -317,7 +317,9 @@ def outward_assembly(
 
     # Let's assemble
     try:
-        logger.info(f"Outward assembly: {seed_path} {workdir} {output_path}")
+        logger.info(
+            f"Outward assembly:\n  seed path: {seed_path}\n  workdir: {workdir}\n  output path: {output_path}"
+        )
         _record_inputs(workdir, seed_path, s3_paths)
 
         # Copy seed sequences to start as current contigs
@@ -359,4 +361,4 @@ def outward_assembly(
         if cleanup:
             shutil.rmtree(workdir)
         else:
-            logger.info(f"Debug: Keeping working directory at {workdir}")
+            logger.debug(f"Keeping working directory at {workdir}")
