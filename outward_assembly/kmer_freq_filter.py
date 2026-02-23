@@ -1,13 +1,15 @@
 import logging
 import math
 import os
+import shutil
 import subprocess
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
 from typing import Optional
 
-from .io_helpers import PathLike, S3Files
+from .io_helpers import PathLike, S3Files, s3_stream_cmd
 
 # kmc and kmc_tools are expected to be available on PATH via the oa-tools conda environment
 
@@ -51,7 +53,7 @@ def _make_kmer_count_commands(
         # Build command sequence
         cmd = (
             f"mkdir -p {tmp_dir} {kmc_tmp_dir} && "
-            f"aws s3 cp {rec.s3_path} - | "
+            f"{s3_stream_cmd(rec.s3_path)} | "
             f"zstd -d - -o {tmp_fastq} && "
             f"kmc -k{k} "  # k-mer length
             f"-cs{max_count} "  # max count before counter saturates
@@ -222,28 +224,32 @@ def frequency_filter_reads(
 
     out_paths = [out_dir / Path(rec.s3_path).parts[-1] for rec in s3_records]
 
-    # Create BBDuk+compression commands
+    # Find nucleaze binary (needed for xargs/sh which may not inherit PATH)
+    nucleaze_bin = shutil.which("nucleaze")
+    if nucleaze_bin is None:
+        raise RuntimeError("nucleaze not found in PATH")
+
+    # Create Nucleaze+compression commands
+    # --outu outputs reads that do NOT match (i.e., reads without high-freq kmers)
     cmds = [
-        f"aws s3 cp {rec.s3_path} - | "
-        f"zstdcat - | "
-        f"bbduk.sh in=stdin.fq out=stdout.fq "
-        f"ref={high_freq_kmers_path} k={k} "
-        f"rcomp=t minkmerhits=1 mm=f interleaved=t "
-        f"threads=3 -Xmx2g | "
-        f"zstd -q -T3 > {p_out}"
+        f"{s3_stream_cmd(rec.s3_path)} | zstdcat - | "
+        f"{nucleaze_bin} --in - "
+        f"--outu {out_dir / rec.filename}_tmp_out.fq "
+        f"--outm /dev/null "
+        f"--ref {high_freq_kmers_path} --k {k} "
+        f"--canonical --minhits 1 --interinput "
+        f"--threads 3 && "
+        f"zstd -q -T3 < {out_dir / rec.filename}_tmp_out.fq > {p_out} && "
+        f"rm {out_dir / rec.filename}_tmp_out.fq"
         for rec, p_out in zip(s3_records, out_paths)
     ]
 
-    # Filter in parallel
-    cmd_file = workdir / "filter_commands.txt"
-    with open(cmd_file, "w") as f:
-        f.write("\n".join(cmds))
+    def run_cmd(cmd: str) -> subprocess.CompletedProcess:
+        return subprocess.run(cmd, shell=True, check=True, capture_output=True)
 
-    subprocess.run(
-        f"cat {cmd_file} | xargs -P {num_parallel} -I CMD sh -c 'CMD'",
-        shell=True,
-        check=True,
-    )
+    with ThreadPoolExecutor(max_workers=num_parallel) as executor:
+        futures = [executor.submit(run_cmd, cmd) for cmd in cmds]
+        for future in as_completed(futures):
+            future.result()  # Raises exception if command failed
 
-    cmd_file.unlink()
-    logging.debug("BBDuk filtering complete")
+    logging.debug("Nucleaze filtering complete")

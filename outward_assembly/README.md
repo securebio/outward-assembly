@@ -12,7 +12,7 @@ Hence, *normal* mode will only have one outer iteration and a variable number of
 
 ## Code notes
 * The naive algorithm used to construct the contig overlap graph requires checking all pairs of contigs for overlap and thus has runtime `O(n^2)` in `n` the number of contigs. Typically this step is super fast because we have few contigs, but if you're finding outward assembly stalling with a single Python process utilizing ~100% of a CPU core, this is a plausible candidate.
-    * One way to accidentally get lots of contigs: use a too-small `read_subset_k` argument when calling `outward_assembly`, which can result in BBDuk selecting lots of reads unrelated to the seed sequence.
+    * One way to accidentally get lots of contigs: use a too-small `read_subset_k` argument when calling `outward_assembly`, which can result in selecting lots of reads unrelated to the seed sequence.
 * For code formatting, we use [Black](https://github.com/psf/black) and [isort](https://github.com/PyCQA/isort).
 
 ## Testing

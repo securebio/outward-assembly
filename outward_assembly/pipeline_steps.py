@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import textwrap
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional
@@ -12,7 +13,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from .basic_seq_operations import SeqOrientation
-from .io_helpers import PathLike, S3Files, concat_and_tag_fastq
+from .io_helpers import PathLike, S3Files, concat_and_tag_fastq, s3_stream_cmd
 from .overlap_graph import get_overlapping_sequence_ids
 
 # File names used across functions
@@ -315,7 +316,7 @@ def _subset_split_files(
     n_threads: int = 3,
     ordered: bool = True,
 ) -> None:
-    """Determine whether to use batch or local BBDuk to subset reads from split files.
+    """Determine whether to use batch or local Nucleaze to subset reads from split files.
 
     Args:
         s3_records: Processed S3 paths of read files
@@ -325,8 +326,8 @@ def _subset_split_files(
         use_batch: Whether to use batch mode
         batch_workdir: S3 path to batch work directory; Argument is ignored if use_batch is False
         batch_queue: Batch queue name; Argument is ignored if use_batch is False
-        num_parallel: Number of parallel BBDuk processes; Argument is ignored if use_batch is True
-        n_threads: Threads per BBDuk process; Argument is ignored if use_batch is True
+        num_parallel: Number of parallel Nucleaze processes; Argument is ignored if use_batch is True
+        n_threads: Threads per Nucleaze process; Argument is ignored if use_batch is True
         ordered: Force output order to match input read order; Argument is ignored if use_batch is True
     """
     if use_batch:
@@ -361,7 +362,7 @@ def _subset_split_files_local(
     n_threads: int = 3,
     ordered: bool = True,
 ) -> None:
-    """Use parallel BBDuk to subset reads from split files sharing kmers with ref. By
+    """Use parallel Nucleaze to subset reads from split files sharing kmers with ref. By
     default, the order of filtered reads will match the order of inputs, which makes
     the overall assembly algorithm closer to determinsitic.
 
@@ -370,8 +371,8 @@ def _subset_split_files_local(
         ref_fasta_path: Path to reference fasta for filtering
         read_subset_k: Kmer size for matching
         workdir: Working directory for output
-        num_parallel: Number of parallel BBDuk processes
-        n_threads: Threads per BBDuk process
+        num_parallel: Number of parallel Nucleaze processes
+        n_threads: Threads per Nucleaze process
         ordered: Force output order to match input read order
     """
     ref_fasta_path = Path(ref_fasta_path)
@@ -384,29 +385,38 @@ def _subset_split_files_local(
     if num_parallel is None:
         num_parallel = max(1, cpu_count() // 4)
 
+    nucleaze_bin = shutil.which("nucleaze")
+    if nucleaze_bin is None:
+        raise RuntimeError("nucleaze not found in PATH")
+
+    # Build Nucleaze commands - equivalent to BBDuk with:
+    #   rcomp=t -> --canonical (use canonical k-mer form)
+    #   minkmerhits=1 -> --minhits 1 (default)
+    #   mm=f -> (default, exact matching only)
+    #   interleaved=t -> --interinput
+    #   ordered=t -> --order
+    # Note: nucleaze requires both --outm/--outm2 AND --outu/--outu2 when using paired input
+    # We discard unmatched reads to /dev/null
     cmds = [
-        f"aws s3 cp {rec.s3_path} - | "
+        f"{s3_stream_cmd(rec.s3_path)} | "
         f"zstdcat - | "
-        f"bbduk.sh in=stdin.fq "
-        f"outm={workdir / rec.filename}_1.fastq outm2={workdir / rec.filename}_2.fastq "
-        f"ref={ref_fasta_path} k={read_subset_k} "
-        f"rcomp=t minkmerhits=1 mm=f interleaved=t "
-        f"ordered={'t' if ordered else 'f'} "
-        f"threads={n_threads} -Xmx2g"
+        f"{nucleaze_bin} --in - "
+        f"--outm {workdir / rec.filename}_1.fastq --outm2 {workdir / rec.filename}_2.fastq "
+        f"--outu /dev/null --outu2 /dev/null "
+        f"--ref {ref_fasta_path} --k {read_subset_k} "
+        f"--canonical --minhits 1 --interinput "
+        f"{'--order ' if ordered else ''}"
+        f"--threads {n_threads}"
         for rec in s3_records
     ]
 
-    cmd_file = workdir / "filter_commands.txt"
-    with open(cmd_file, "w") as f:
-        f.write("\n".join(cmds))
-    # shell=True needed for commands with pipes
-    subprocess.run(
-        f"cat {cmd_file} | xargs -P {num_parallel} -I CMD sh -c 'CMD'",
-        shell=True,
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    def run_cmd(cmd: str) -> subprocess.CompletedProcess:
+        return subprocess.run(cmd, shell=True, check=True, capture_output=True)
+
+    with ThreadPoolExecutor(max_workers=num_parallel) as executor:
+        futures = [executor.submit(run_cmd, cmd) for cmd in cmds]
+        for future in as_completed(futures):
+            future.result()  # Raises exception if command failed
 
     # Concatenate per-split hits
     for read_num in (1, 2):
@@ -414,9 +424,7 @@ def _subset_split_files_local(
         split_files = [workdir / f"{rec.filename}_{read_num}.fastq" for rec in s3_records]
         concat_and_tag_fastq(split_files, output_path)
         for split_file in split_files:
-            (workdir / split_file).unlink()
-
-    cmd_file.unlink()
+            split_file.unlink()
 
 
 def _create_nextflow_config(
@@ -479,9 +487,9 @@ def _subset_split_files_batch(
     batch_queue: str,
     tower_token: str,
 ) -> None:
-    """Use parallel BBDuk by running Nextflow (which uses AWS Batch) to subset reads from split files sharing kmers with ref. By
+    """Use Nextflow (AWS Batch) to subset reads from split files sharing kmers with ref. By
     default, the order of filtered reads will match the order of inputs, which makes
-    the overall assembly algorithm closer to determinsitic.
+    the overall assembly algorithm closer to deterministic.
 
     Args:
         s3_records: Processed S3 paths of read files
@@ -598,22 +606,39 @@ def _copy_iteration_reads(workdir: PathLike, iter_num: int) -> None:
 
 def _frequency_filter_reads(workdir: Path, high_freq_kmers_path: Path, k: int) -> None:
     """Create filtered reads for this iteration's assemblies"""
+    nucleaze_bin = shutil.which("nucleaze")
+    if nucleaze_bin is None:
+        raise RuntimeError("nucleaze not found in PATH")
+
     with open(workdir / LOG_FILE, "a") as log:
+        # Use Nucleaze to filter out reads containing high-frequency kmers
+        # --outu outputs reads that do NOT match the reference (unmatched reads)
+        # Note: nucleaze requires --outm/--outm2 when using --in2, so we discard matched reads to /dev/null
         subprocess.run(
             [
-                "bbduk.sh",
-                f"in={workdir / READS_1_FASTQ}",
-                f"in2={workdir / READS_2_FASTQ}",
-                f"out={workdir / READS_FILTERED_1_FASTQ}",
-                f"out2={workdir / READS_FILTERED_2_FASTQ}",
-                f"ref={high_freq_kmers_path}",
-                f"k={k}",
-                "rcomp=t",
-                "minkmerhits=1",
-                "mm=f",
-                "ordered=t",
-                "threads=4",
-                "-Xmx2g",
+                nucleaze_bin,
+                "--in",
+                str(workdir / READS_1_FASTQ),
+                "--in2",
+                str(workdir / READS_2_FASTQ),
+                "--outu",
+                str(workdir / READS_FILTERED_1_FASTQ),
+                "--outu2",
+                str(workdir / READS_FILTERED_2_FASTQ),
+                "--outm",
+                "/dev/null",
+                "--outm2",
+                "/dev/null",
+                "--ref",
+                str(high_freq_kmers_path),
+                "--k",
+                str(k),
+                "--canonical",
+                "--minhits",
+                "1",
+                "--order",
+                "--threads",
+                "4",
             ],
             stdout=log,
             stderr=log,
@@ -645,19 +670,42 @@ def _adapter_sanitize_kmer_queries(
 
     _extract_fasta_kmers(contigs_path, candidate_kmers_path, k)
 
-    # Now use BBDuk to remove adapter kmers from candidate kmers
+    # Check if adapters file has sequences long enough to produce k-mers
+    # If not, skip filtering and just use all candidate kmers
+    has_valid_adapter_kmers = False
+    for record in SeqIO.parse(adapters_path, "fasta"):
+        if len(record.seq) >= k:
+            has_valid_adapter_kmers = True
+            break
+
+    if not has_valid_adapter_kmers:
+        # No adapter k-mers possible, just copy input to output
+        shutil.copy(candidate_kmers_path, final_query_kmers_path)
+        candidate_kmers_path.unlink()
+        return final_query_kmers_path
+
+    # Use Nucleaze to remove adapter kmers from candidate kmers
+    # --outu outputs unmatched sequences (those without adapter kmers)
+    nucleaze_bin = shutil.which("nucleaze")
+    if nucleaze_bin is None:
+        raise RuntimeError("nucleaze not found in PATH")
+
     cmd_parts = [
-        "bbduk.sh",
-        f"in={candidate_kmers_path}",
-        f"out={final_query_kmers_path}",  # we want the unmatched candidate kmers
-        f"ref={adapters_path}",
-        f"k={k}",
-        "rcomp=t",
-        "minkmerhits=1",
-        "mm=f",
-        "ordered=t",
-        "threads=4",
-        "-Xmx2g",
+        nucleaze_bin,
+        "--in",
+        str(candidate_kmers_path),
+        "--outu",
+        str(final_query_kmers_path),  # we want the unmatched candidate kmers
+        "--ref",
+        str(adapters_path),
+        "--k",
+        str(k),
+        "--canonical",
+        "--minhits",
+        "1",
+        "--order",
+        "--threads",
+        "4",
     ]
     with open(workdir / LOG_FILE, "a") as log:
         subprocess.run(cmd_parts, shell=False, check=True, stdout=log, stderr=log)

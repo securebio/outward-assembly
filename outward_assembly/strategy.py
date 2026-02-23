@@ -24,8 +24,8 @@ Condition variables:
 
 Actions:
 - **next_priority**: Advances the current dataset selection to the next priority.
-- **decrease_k**: Decreases the k-mer size of BBDuk for the current dataset.
-- **increase_k**: Increases the k-mer size of BBDuk for the current dataset.
+- **decrease_k**: Decreases the k-mer size used for read filtering for the current dataset.
+- **increase_k**: Increases the k-mer size used for read filtering for the current dataset.
 """
 
 

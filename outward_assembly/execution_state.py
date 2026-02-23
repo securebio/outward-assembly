@@ -22,7 +22,7 @@ class ExecutionState:
         output_path (str): Path for the output file.
         use_batch (bool): Flag indicating whether to use batch processing.
         work_dir (str): Working directory for the execution.
-        read_subset_k (int): Selection of k for BBDuk
+        read_subset_k (int): Selection of k for read filtering
         dataset_priority (int): Dataset priority for the current iteration.
         max_compute_time (timedelta): Maximum allowed compute time.
         max_outer_iterations (int): Maximum number of times Outward Assembly will run.

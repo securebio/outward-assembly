@@ -91,9 +91,9 @@ Make sure you either have a reliable warm start sequence or that `read_subset_k`
 
 ### What hardware to run on
 
-Almost always, outward assembly running time is dominated by the parallel BBDuk read searches: looking through a large haystack of reads to find the few needle-reads that contain kmers from our contigs. To make this search as fast as possible, you really want to be running on an EC2 instance in the same region as your data-containing S3 buckets. (This will also minimize data movement costs, since data S3 -> EC2 within region is free.)
+Almost always, outward assembly running time is dominated by the parallel read searches: looking through a large haystack of reads to find the few needle-reads that contain kmers from our contigs. To make this search as fast as possible, you really want to be running on an EC2 instance in the same region as your data-containing S3 buckets. (This will also minimize data movement costs, since data S3 -> EC2 within region is free.)
 
-The read search is compute and network bottlenecked, so consider compute-optimized instances like the c7a/c8a families. Outward assembly will run one BBDuk search process per 4 vCPU cores. *Very* roughly, streaming, decompressing, and searching a 1 million read pair SIZ chunk takes 4 cores about 15 seconds, so with a `n`-core machine you can search `n` million read pairs per minute.
+The read search is compute and network bottlenecked, so consider compute-optimized instances like the c7a/c8a families. Outward assembly will run one read search process per 4 vCPU cores. *Very* roughly, streaming, decompressing, and searching a 1 million read pair SIZ chunk takes 4 cores about 15 seconds, so with a `n`-core machine you can search `n` million read pairs per minute.
 
 ## (Optional) AWS Batch for read search
 
