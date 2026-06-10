@@ -132,8 +132,8 @@ def _contig_ids_by_seed_ahocorasick(
 
     Note:
         When a contig matches multiple seeds (or matches both forward and reverse
-        complement), the orientation is determined by the leftmost match position
-        in the contig.
+        complements), the orientation is determined by the majority of seed matches
+        in the contig. Ties are broken by the leftmost match position.
     """
 
     if not seed_seqs or not records:
@@ -156,10 +156,30 @@ def _contig_ids_by_seed_ahocorasick(
 
     for contig_idx, record in enumerate(records):
         contig_seq = str(record.seq).upper()
+        orientation_counts = {
+            SeqOrientation.FORWARD: 0,
+            SeqOrientation.REVERSE: 0,
+        }
+        first_match_by_orientation: Dict[SeqOrientation, int] = {}
 
-        for _end_pos, orientation in automaton.iter(contig_seq):
-            matches[contig_idx] = orientation
-            break
+        for end_pos, orientation in automaton.iter(contig_seq):
+            orientation_counts[orientation] += 1
+            first_match_by_orientation.setdefault(orientation, end_pos)
+
+        if not first_match_by_orientation:
+            continue
+
+        forward_count = orientation_counts[SeqOrientation.FORWARD]
+        reverse_count = orientation_counts[SeqOrientation.REVERSE]
+        if forward_count > reverse_count:
+            matches[contig_idx] = SeqOrientation.FORWARD
+        elif reverse_count > forward_count:
+            matches[contig_idx] = SeqOrientation.REVERSE
+        else:
+            matches[contig_idx] = min(
+                first_match_by_orientation,
+                key=lambda orientation: first_match_by_orientation[orientation],
+            )
 
     return matches
 

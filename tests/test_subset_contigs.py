@@ -60,6 +60,31 @@ def test_contig_ids_by_seed_multiple_seeds():
 
 @pytest.mark.fast
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    ("contig_seq", "expected_orientation"),
+    [
+        # Two reverse-complement seed hits should orient the contig in reverse even when a
+        # forward hit appears first.
+        ("AAATCCCATTTCCTATTTGGG", SeqOrientation.REVERSE),
+        # Two forward seed hits should orient the contig forward even when a reverse hit
+        # appears first.
+        ("ATTTCCTAAATCCCAAATGGG", SeqOrientation.FORWARD),
+        # Equal forward/reverse counts keep the previous leftmost-match tie behavior.
+        ("ATTTCCTAAATGGG", SeqOrientation.REVERSE),
+    ],
+)
+def test_contig_ids_by_seed_uses_majority_orientation(contig_seq, expected_orientation):
+    """Orient contigs by majority seed direction, with leftmost-match tie breaking."""
+    result = _contig_ids_by_seed_ahocorasick(
+        records=[SeqRecord(seq=Seq(contig_seq))],
+        seed_seqs=[Seq("AAAT")],
+    )
+
+    assert result == {0: expected_orientation}
+
+
+@pytest.mark.fast
+@pytest.mark.unit
 def test_contig_ids_by_seed_palindrome():
     """Test with palindromic seed (RC equals forward)."""
     seed = Seq("ACGT")  # RC is also ACGT
@@ -97,20 +122,48 @@ def test_contig_ids_by_seed_variable_length():
 def _naive_contig_ids_by_seed(records, seed_seqs):
     """
     Naive O(seeds × contigs) implementation for comparison.
-    Iterates through seeds in list order, returns orientation of first match.
+    Returns the majority seed orientation for each contig, breaking ties by leftmost match.
     """
     filtered_records = {}
     for i, rec in enumerate(records):
         contig_sequence = str(rec.seq)
+        orientation_counts = {
+            SeqOrientation.FORWARD: 0,
+            SeqOrientation.REVERSE: 0,
+        }
+        first_match_by_orientation = {}
+
         for seed in seed_seqs:
             seed_str = str(seed)
             seed_rc = str(seed.reverse_complement())
-            if seed_str in contig_sequence:
-                filtered_records[i] = SeqOrientation.FORWARD
-                break
-            elif seed_rc in contig_sequence:
-                filtered_records[i] = SeqOrientation.REVERSE
-                break
+            for orientation, seed_to_find in (
+                (SeqOrientation.FORWARD, seed_str),
+                (SeqOrientation.REVERSE, seed_rc),
+            ):
+                if seed_str == seed_rc and orientation == SeqOrientation.REVERSE:
+                    continue
+
+                start = contig_sequence.find(seed_to_find)
+                while start != -1:
+                    orientation_counts[orientation] += 1
+                    first_match_by_orientation.setdefault(orientation, start)
+                    start = contig_sequence.find(seed_to_find, start + 1)
+
+        if not first_match_by_orientation:
+            continue
+
+        forward_count = orientation_counts[SeqOrientation.FORWARD]
+        reverse_count = orientation_counts[SeqOrientation.REVERSE]
+        if forward_count > reverse_count:
+            filtered_records[i] = SeqOrientation.FORWARD
+        elif reverse_count > forward_count:
+            filtered_records[i] = SeqOrientation.REVERSE
+        else:
+            filtered_records[i] = min(
+                first_match_by_orientation,
+                key=lambda orientation: first_match_by_orientation[orientation],
+            )
+
     return filtered_records
 
 
