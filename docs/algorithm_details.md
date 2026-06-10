@@ -32,6 +32,13 @@ So during the step "filter contigs to those that contain the seed," the full out
 
 Ideally, this modified filtering step retains all contigs that could be stitched together with a seed-containing contig while discarding irrelevant unrelated contigs.
 
+When overlap filtering is enabled, each MEGAHIT subiteration directory also includes
+`contig_overlap_graph.tsv`. This file records the retained overlap edges, whether each
+endpoint directly contained a seed, and each endpoint's orientation with respect to the
+seed. This is intended as a debugging aid: if a contig is retained only because it overlaps
+a seed-containing contig, the TSV shows the chain of evidence that caused the filter to
+keep it and the oriented contig IDs to inspect when stitching contigs manually.
+
 ## Assembly strictness and coverage thresholds
 Sequencing errors are common, and assemblers like MEGAHIT use coverage depth to decide when to apply error reduction procedures like tip pruning and bubble popping. Unfortunately, we're often assembling a sequence with very low coverage; maybe we've seen the seed just a handful of times -- if we've seen the seed a bunch and have deep coverage, we should have been trying to assemble one delivery ago.
 
