@@ -1,3 +1,4 @@
+import csv
 import tempfile
 from pathlib import Path
 
@@ -114,6 +115,22 @@ def test_subset_contigs_with_overlaps(temp_workdir_with_contigs, overlapping_con
     assert len(contig_ids) == 2
     assert "contig5" in contig_ids
 
+    graph_path = megahit_dir / "contig_overlap_graph.tsv"
+    with open(graph_path) as f:
+        overlap_edges = list(csv.DictReader(f, delimiter="\t"))
+
+    assert overlap_edges == [
+        {
+            "source_contig": "contig5",
+            "target_contig": "contig6",
+            "source_oriented": "contig5",
+            "target_oriented": "contig6",
+            "edge_orientation": "forward",
+            "source_contains_seed": "false",
+            "target_contains_seed": "true",
+        }
+    ]
+
 
 @pytest.mark.fast
 @pytest.mark.unit
@@ -144,6 +161,9 @@ def test_subset_contigs_preserves_seed_orientation(temp_workdir_with_contigs):
         "AAAAAAAAAAAAAAAAA",  # reverse complement of contig2
         "GGGGGGAAAAAACCCCCC",  # contig3
     } == contig_sequences
+
+    graph_path = workdir / "megahit_out_iter1-1" / "contig_overlap_graph.tsv"
+    assert not graph_path.exists()
 
 
 @pytest.mark.fast

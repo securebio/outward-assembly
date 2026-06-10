@@ -10,6 +10,7 @@ Each invocation of outward assembly creates a working directory which records th
 ├── megahit_out_iter<i>-<j> # iteration i, subiteration j
 │   ├── chose_this_subiter # empty file created if this subiter's contigs were chosen
 │   ├── contigs_filtered.fasta # final.contigs.fa filtered to contigs relating to our seeds
+│   ├── contig_overlap_graph.tsv # why overlap-filtered contigs were retained, if enabled
 │   ├── final.contigs.fa # megahit output of this subiter's assembly
 │   └── # other megahit outputs
 ├── original_seed.fasta
@@ -157,3 +158,27 @@ CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAGAGGTAGGCAAATGCAGCCCTTATCGTTCTGCGGCTGGGGC
 Notice:
 * Contig `k141_3` is the reverse complement of `k141_3` in `contigs_filtered.fasta`. When filtering contigs, we try to orient them in the forward-seed direction.
 * The `CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAG` "missing" from the end of our iteration 3 contig is found in MEGAHIT output contig `k141_4`! With the extra reads found in iteration 3, MEGAHIT's assembly took a different path through the `CCCCCCCCGCAGGCTGGATTCCCGTACGACATGGCTGTAG` assembly graph node than we had in iteration 2.
+
+## Why was a contig kept even though it does not contain a seed?
+
+If `overlap_contig_filtering=True`, each `megahit_out_iter<i>-<j>` directory contains a
+`contig_overlap_graph.tsv` file next to `contigs_filtered.fasta`. The file is a compact
+edge list for the retained portion of the contig overlap graph. For example:
+
+```
+source_contig	target_contig	source_oriented	target_oriented	edge_orientation	source_contains_seed	target_contains_seed
+contig5	contig6	contig5	contig6	forward	false	true
+contig7	contig5	contig7	rc:contig5	reverse	false	true
+```
+
+The `source_contig` and `target_contig` columns are the original MEGAHIT IDs. The
+`source_oriented` and `target_oriented` columns add an `rc:` prefix when that endpoint
+should be inspected as a reverse complement with respect to the seed. The
+`source_contains_seed` and `target_contains_seed` columns distinguish contigs retained
+because they directly contain a seed from contigs retained because they overlap a
+seed-containing component.
+
+This is especially helpful when `contigs_filtered.fasta` includes a contig that does not
+obviously contain your seed: look it up in `contig_overlap_graph.tsv`, then follow the
+edges until you reach a `*_contains_seed=true` endpoint. That path is the reason outward
+assembly kept the contig.

@@ -1,11 +1,16 @@
 import warnings
 from collections import deque
-from typing import Dict, Sequence
+from typing import Dict, NamedTuple, Sequence
 
 import networkx as nx
 from Bio.Seq import Seq
 
 from outward_assembly.basic_seq_operations import SeqOrientation
+
+
+class OverlapGraphDiagnostics(NamedTuple):
+    graph: nx.Graph
+    connected_orientations: Dict[int, SeqOrientation]
 
 
 def _seqs_overlap_single(
@@ -185,17 +190,14 @@ def _traverse_subgraph_and_orient(
     return orientations
 
 
-def get_overlapping_sequence_ids(
+def get_overlap_graph_diagnostics(
     seqs: Sequence[str | Seq],
     seqs_containing_seed: Dict[int, SeqOrientation],
     n_0_error: int,
     n_1_error: int,
-) -> Dict[int, SeqOrientation]:
+) -> OverlapGraphDiagnostics:
     """
-    Get indices of sequences that are connected to any seed-containing sequence, where
-    connectedness is determined by the sequences having an overlapping region. Returns
-    0-based indices into the provided seqs list, along with the relative orientation of
-    each sequence with respect to the seed.
+    Build the overlap graph and find sequences connected to any seed-containing sequence.
 
     Args:
         seqs: Sequences to analyze
@@ -206,9 +208,10 @@ def get_overlapping_sequence_ids(
         n_1_error: Minimum overlap length when allowing 1 mismatch
 
     Returns:
-        Dict whose keys are the indices of any sequence that is connected via overlap to a
-        seed-containing sequence, and whose values are the relative orientation of the
-        sequence with respect to the seed
+        OverlapGraphDiagnostics containing the full overlap graph and a dict whose keys are
+        the indices of any sequence that is connected via overlap to a seed-containing
+        sequence, and whose values are the relative orientation of the sequence with
+        respect to the seed.
     """
     seqs = [Seq(s) if isinstance(s, str) else s for s in seqs]
 
@@ -234,4 +237,40 @@ def get_overlapping_sequence_ids(
         )
         all_connected_contigs.update(oriented_connected_contigs)
 
-    return all_connected_contigs
+    return OverlapGraphDiagnostics(
+        graph=g,
+        connected_orientations=all_connected_contigs,
+    )
+
+
+def get_overlapping_sequence_ids(
+    seqs: Sequence[str | Seq],
+    seqs_containing_seed: Dict[int, SeqOrientation],
+    n_0_error: int,
+    n_1_error: int,
+) -> Dict[int, SeqOrientation]:
+    """
+    Get indices of sequences that are connected to any seed-containing sequence, where
+    connectedness is determined by the sequences having an overlapping region. Returns
+    0-based indices into the provided seqs list, along with the relative orientation of
+    each sequence with respect to the seed.
+
+    Args:
+        seqs: Sequences to analyze
+        seqs_containing_seed: Dict to use to subset the above sequences. The keys of this
+            dict are indices of seqs, corresponding to sequences that contain a seed, and
+            the values are the orientation of each sequence relative to the seed it contains
+        n_0_error: Minimum overlap length for exact match
+        n_1_error: Minimum overlap length when allowing 1 mismatch
+
+    Returns:
+        Dict whose keys are the indices of any sequence that is connected via overlap to a
+        seed-containing sequence, and whose values are the relative orientation of the
+        sequence with respect to the seed
+    """
+    return get_overlap_graph_diagnostics(
+        seqs,
+        seqs_containing_seed,
+        n_0_error,
+        n_1_error,
+    ).connected_orientations

@@ -13,7 +13,7 @@ from Bio.SeqRecord import SeqRecord
 
 from .basic_seq_operations import SeqOrientation
 from .io_helpers import PathLike, S3Files, concat_and_tag_fastq
-from .overlap_graph import get_overlapping_sequence_ids
+from .overlap_graph import get_overlap_graph_diagnostics
 
 # File names used across functions
 CURRENT_CONTIGS = "current_contigs.fasta"
@@ -32,6 +32,7 @@ READS_UNTRIMMED_2_FASTQ = "reads_untrimmed_2.fastq"
 MEGAHIT_OUT_PREFIX = "megahit_out_iter"
 MEGAHIT_FINAL_CONTIGS = "final.contigs.fa"
 MEGAHIT_FILTERED_CONTIGS = "contigs_filtered.fasta"
+MEGAHIT_OVERLAP_GRAPH = "contig_overlap_graph.tsv"
 CHOSEN_SUBITER_FLAG = "chose_this_subiter"
 LOG_FILE = "log.txt"
 
@@ -164,6 +165,70 @@ def _contig_ids_by_seed_ahocorasick(
     return matches
 
 
+def _format_oriented_contig_id(contig_id: str, orientation: SeqOrientation) -> str:
+    if orientation == SeqOrientation.REVERSE:
+        return f"rc:{contig_id}"
+    return contig_id
+
+
+def _write_contig_overlap_graph(
+    path: PathLike,
+    records: List[SeqRecord],
+    graph,
+    connected_orientations: Dict[int, SeqOrientation],
+    seed_contig_orientations: Dict[int, SeqOrientation],
+) -> None:
+    """Write a TSV explaining why overlap-filtered contigs were retained."""
+    path = Path(path)
+    selected_ids = set(connected_orientations)
+
+    with open(path, "w") as f:
+        f.write(
+            "\t".join(
+                [
+                    "source_contig",
+                    "target_contig",
+                    "source_oriented",
+                    "target_oriented",
+                    "edge_orientation",
+                    "source_contains_seed",
+                    "target_contains_seed",
+                ]
+            )
+            + "\n"
+        )
+
+        selected_edges = (
+            edge
+            for edge in graph.edges(data=True)
+            if edge[0] in selected_ids and edge[1] in selected_ids
+        )
+        for source_idx, target_idx, edge_data in sorted(
+            selected_edges, key=lambda edge: (records[edge[0]].id, records[edge[1]].id)
+        ):
+            source_orientation = connected_orientations[source_idx]
+            target_orientation = connected_orientations[target_idx]
+            edge_orientation = edge_data["orientation"]
+            f.write(
+                "\t".join(
+                    [
+                        records[source_idx].id,
+                        records[target_idx].id,
+                        _format_oriented_contig_id(
+                            records[source_idx].id, source_orientation
+                        ),
+                        _format_oriented_contig_id(
+                            records[target_idx].id, target_orientation
+                        ),
+                        edge_orientation.name.lower(),
+                        str(source_idx in seed_contig_orientations).lower(),
+                        str(target_idx in seed_contig_orientations).lower(),
+                    ]
+                )
+                + "\n"
+            )
+
+
 def _subset_contigs(
     workdir: PathLike,
     iter: int,
@@ -212,9 +277,17 @@ def _subset_contigs(
 
         if include_overlaps:
             seqs = [rec.seq for rec in records]
-            subsetted_ids_and_orientations = get_overlapping_sequence_ids(
+            overlap_diagnostics = get_overlap_graph_diagnostics(
                 seqs, subsetted_ids_and_orientations, overlap_n0, overlap_n1
             )
+            _write_contig_overlap_graph(
+                subiter_dir / MEGAHIT_OVERLAP_GRAPH,
+                records,
+                overlap_diagnostics.graph,
+                overlap_diagnostics.connected_orientations,
+                subsetted_ids_and_orientations,
+            )
+            subsetted_ids_and_orientations = overlap_diagnostics.connected_orientations
 
         for idx, orientation in subsetted_ids_and_orientations.items():
             record = records[idx]
